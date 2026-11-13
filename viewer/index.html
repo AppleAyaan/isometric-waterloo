@@ -58,32 +58,48 @@
     const OUT = new URL('../out/', location.href).href;
     const exists = async (u) => { try { return (await fetch(u, { method: 'HEAD' })).ok; } catch { return false; } };
     const meta = await (await fetch(OUT + 'meta.json')).json();
-    const painted = await exists(OUT + 'map.png');
-    const sources = { painted: OUT + 'map.png', whitebox: OUT + 'render.png' };
-    let mode = painted ? 'painted' : 'whitebox';
+    // Layers, best first: AI-painted, Google photorealistic, OSM whitebox.
+    const LAYERS = [
+      { id: 'painted', label: 'Painted', file: 'map.png' },
+      { id: 'photo', label: 'Photo', file: 'photo.png', credit: 'Imagery © Google' },
+      { id: 'whitebox', label: 'Whitebox', file: 'render.png' },
+    ];
+    const layers = [];
+    for (const l of LAYERS) if (await exists(OUT + l.file)) layers.push(l);
+    let current = 0;
+    const smooth = (l) => l.id === 'photo'; // pixel-crisp zoom for painted/whitebox, smooth for photos
 
     const viewer = OpenSeadragon({
       element: document.getElementById('map'),
-      tileSources: { type: 'image', url: sources[mode] },
-      showNavigationControl: false, imageSmoothingEnabled: false,
+      tileSources: { type: 'image', url: OUT + layers[0].file },
+      showNavigationControl: false, imageSmoothingEnabled: smooth(layers[0]),
       maxZoomPixelRatio: 6, visibilityRatio: 0.6, constrainDuringPan: true,
       gestureSettingsMouse: { clickToZoom: false },
       animationTime: 0.6, springStiffness: 9,
     });
     window.viewer = viewer;
-    viewer.addHandler("open-failed", (e) => console.error("open failed", e.message));
+    viewer.addHandler('open-failed', (e) => console.error('open failed', e.message));
     document.body.style.background = meta.background;
 
+    const credit = document.getElementById('credit');
+    const baseCredit = credit.innerHTML;
     const toggle = document.getElementById('toggle');
-    if (painted) {
+    function showLayer(i, keepView) {
+      current = i;
+      const l = layers[i];
+      credit.innerHTML = baseCredit + (l.credit ? ` · ${l.credit}` : '');
+      toggle.textContent = `${l.label} ▸ ${layers[(i + 1) % layers.length].label}`;
+      if (!keepView) return;
+      const b = viewer.viewport.getBounds();
+      viewer.imageSmoothingEnabled = smooth(l);
+      if (viewer.drawer && 'setImageSmoothingEnabled' in viewer.drawer) viewer.drawer.setImageSmoothingEnabled(smooth(l));
+      viewer.open({ type: 'image', url: OUT + l.file });
+      viewer.addOnceHandler('open', () => viewer.viewport.fitBounds(b, true));
+    }
+    showLayer(0, false);
+    if (layers.length > 1) {
       toggle.style.display = 'block';
-      toggle.onclick = () => {
-        mode = mode === 'painted' ? 'whitebox' : 'painted';
-        toggle.textContent = mode === 'painted' ? 'Show whitebox' : 'Show painted';
-        const b = viewer.viewport.getBounds();
-        viewer.open({ type: 'image', url: sources[mode] });
-        viewer.addOnceHandler('open', () => viewer.viewport.fitBounds(b, true));
-      };
+      toggle.onclick = () => showLayer((current + 1) % layers.length, true);
     }
 
     // ---- building lookup via the ID map ----

@@ -12,7 +12,17 @@ import { startServer } from './serve.mjs';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
 const arg = (name, def) => { const i = args.indexOf(`--${name}`); return i >= 0 ? args[i + 1] : def; };
-const scale = arg('scale', '2.5'), azimuth = arg('azimuth', '-45');
+const source = arg('source', 'osm');
+const scale = arg('scale', source === 'google' ? '3' : '2.5'), azimuth = arg('azimuth', '-45');
+let key = process.env.GOOGLE_MAPS_API_KEY;
+const keyFile = path.join(ROOT, '.google-maps-key');
+if (!key && fs.existsSync(keyFile)) key = fs.readFileSync(keyFile, 'utf8').trim();
+if (source === 'google' && !key) {
+  console.error('Google source needs an API key: put it in .google-maps-key (git-ignored) or set GOOGLE_MAPS_API_KEY.');
+  process.exit(1);
+}
+// whitebox -> render.png ; google -> photo.png. ID map and meta are shared (same projection).
+const colourName = source === 'google' ? 'photo.png' : 'render.png';
 
 const port = 8765;
 const server = await startServer(port);
@@ -21,16 +31,19 @@ try {
   const page = await browser.newPage();
   page.on('console', (m) => { if (m.type() === 'error') console.error('[page]', m.text()); });
   page.on('pageerror', (e) => console.error('[page error]', e.message));
-  await page.goto(`http://localhost:${port}/render/?scale=${scale}&azimuth=${azimuth}`);
+  page.on('console', (m) => { if (m.type() === 'log' || m.type() === 'warning') console.log('[page]', m.text()); });
+  const q = new URLSearchParams({ scale, azimuth, source, ...(key ? { key } : {}) });
+  await page.goto(`http://localhost:${port}/render/?${q}`);
   await page.waitForFunction(() => typeof window.exportMap === 'function');
   const t0 = Date.now();
+  page.setDefaultTimeout(0);
   const res = await page.evaluate(() => window.exportMap());
   fs.mkdirSync(path.join(ROOT, 'out'), { recursive: true });
   const write = (name, dataUrl) => fs.writeFileSync(path.join(ROOT, 'out', name), Buffer.from(dataUrl.split(',')[1], 'base64'));
-  write('render.png', res.render);
+  write(colourName, res.render);
   write('idmap.png', res.idmap);
   fs.writeFileSync(path.join(ROOT, 'out/meta.json'), JSON.stringify(res.meta));
-  console.log(`exported ${res.meta.width}x${res.meta.height}px (${res.meta.buildings.length} buildings) in ${((Date.now() - t0) / 1000).toFixed(1)}s -> out/`);
+  console.log(`exported ${res.meta.width}x${res.meta.height}px (${res.meta.buildings.length} buildings) in ${((Date.now() - t0) / 1000).toFixed(1)}s -> out/${colourName}`);
 } finally {
   await browser.close();
   server.close();

@@ -14,12 +14,21 @@ OpenStreetMap ──► scene.json ──► three.js isometric render ──►
 |---|---|---|
 | 1. Download map data | `npm run fetch` (optional; data is committed) | `data/osm_raw.json` |
 | 2. Build the 3D scene | `npm run scene` | `data/scene.json` |
-| 3. Render the whitebox | `npm run export` (`-- --scale 3` for more detail) | `out/render.png`, `out/idmap.png`, `out/meta.json` |
+| 3a. Render the whitebox | `npm run export` (`-- --scale 3` for more detail) | `out/render.png`, `out/idmap.png`, `out/meta.json` |
+| 3b. Render real 3D imagery | `npm run export -- --source google` (needs `.google-maps-key`) | `out/photo.png` (+ ID map/meta) |
 | 4. Paint it (free GPU) | open `colab/paint_waterloo.ipynb` in Google Colab | `map.png` → put in `out/` |
 | 5. View | `npm run serve` → http://localhost:8080 | |
 | 6. Deploy | `npm run site` → upload `site/` to GitHub Pages or Cloudflare Pages | |
 
 Setup: `npm install` (export uses your installed Google Chrome via Playwright).
+
+### Google Photorealistic 3D Tiles (the Tiny Toronto look)
+1. In Google Cloud Console, create a project, enable the **Map Tiles API**, and create an API key.
+2. Save the key in `.google-maps-key` in the project root (git-ignored).
+3. `npm run export -- --source google` renders `out/photo.png` with the same camera as the whitebox, so hover and search still line up.
+4. In Colab, choose the **painted** style with `INPUT = photo.png` to turn the photo render into a clean illustrated map.
+
+Google's Map Tiles API terms restrict storing and redistributing its imagery. Check them before publishing a site built from `photo.png` or `map.png`.
 
 ### Changing the area
 `BBOX="south,west,north,east" npm run fetch && npm run scene && npm run export`

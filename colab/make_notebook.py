@@ -8,8 +8,12 @@ def code(s): cells.append({"cell_type": "code", "metadata": {}, "execution_count
 md("""
 # Isometric Waterloo: AI painter
 
-Turns the isometric whitebox render (`render.png`) into a painted pixel-art map (`map.png`), using a pipeline like isometric.nyc's,
-with free models only:
+Turns an isometric render into a painted map (`map.png`), using a pipeline like isometric.nyc's, with free models only.
+Two looks:
+* **painted** (the default): a light repaint of `photo.png` (Google 3D Tiles render) into a clean illustrated map, the Tiny Toronto look
+* **pixel art**: repaints `render.png` (OSM whitebox) as 90s game art, the isometric.nyc look
+
+How it works:
 
 * **SDXL** + a **pixel-art LoRA** for the style
 * **ControlNet (canny)**, so every building stays exactly where the render put it. That keeps hover and labels aligned.
@@ -18,7 +22,7 @@ with free models only:
 
 **Before you start:** `Runtime → Change runtime type → T4 GPU` (free tier).
 
-1. Put `render.png` and `meta.json` (from `out/` in the project) in Google Drive at `MyDrive/isometric-waterloo/`.
+1. Put `photo.png` (or `render.png`) and `meta.json` (from `out/` in the project) in Google Drive at `MyDrive/isometric-waterloo/`.
    If they aren't there, the notebook asks you to upload them instead.
 2. Run the cells in order. Use the **style test** cell to tune the prompt before the full run.
 3. The full run saves progress to Drive after every window. If Colab disconnects, run everything again and it **resumes**.
@@ -28,10 +32,14 @@ with free models only:
 code("""
 # @title 1. Install
 !pip -q install "diffusers>=0.30" transformers accelerate peft safetensors opencv-python-headless
+# Colab ships an old torchao that new peft rejects when loading LoRAs; it isn't needed here.
+!pip -q uninstall -y torchao
 """)
 
 code("""
 # @title 2. Settings
+STYLE = "painted (Tiny Toronto look, use photo.png)"  # @param ["painted (Tiny Toronto look, use photo.png)", "pixel art (isometric.nyc look)", "custom"]
+INPUT = "photo.png"  # @param ["photo.png", "render.png"]
 PROMPT = "isometric pixel art of a university campus, 90s city builder game style, detailed buildings with windows and flat rooftops, lush round trees, grey roads, parking lots, crisp clean pixels, vibrant colors, high detail"  # @param {type:"string"}
 NEGATIVE = "blurry, photo, photorealistic, 3d render, smooth gradients, text, watermark, signature, people, noise, jpeg artifacts, perspective distortion, fisheye"  # @param {type:"string"}
 STEPS = 30  # @param {type:"integer"}
@@ -49,6 +57,19 @@ USE_DRIVE = True  # @param {type:"boolean"}
 # STRENGTH: 1.0 ignores the render's colours; lower keeps them (green grass, blue water) and makes tiles more consistent.
 # CONTROL_SCALE: how strictly building edges are followed. Raise it if buildings drift, lower it if the result looks like a traced render.
 # PIXEL_SIZE / PALETTE_COLORS: post-processing for crisp pixel art (1 / 0 to disable).
+
+PRESETS = {
+    # Light repaint of the Google photo render: removes photogrammetry mush, keeps the real roofs/colours.
+    "painted": dict(PROMPT="highly detailed digital painting of a city seen from above, miniature illustrated map, clean crisp building edges, "
+                           "clear windows and rooftops, lush trees, soft painterly textures, warm sunlight, vibrant natural colors",
+                    NEGATIVE="blurry, melted, warped buildings, smudged, noise, text, watermark, people, cartoon, pixel art, fisheye",
+                    STRENGTH=0.35, CONTROL_SCALE=0.6, LORA_SCALE=0.0, GUIDANCE=6.0, PIXEL_SIZE=1, PALETTE_COLORS=0),
+    "pixel art": dict(),  # the values above
+}
+for key, values in PRESETS.items():
+    if STYLE.startswith(key):
+        globals().update(values)
+print(f"style: {STYLE} | input: {INPUT} | strength {STRENGTH}, control {CONTROL_SCALE}, lora {LORA_SCALE}")
 """)
 
 code("""
@@ -64,7 +85,7 @@ if USE_DRIVE:
     WORK = "/content/drive/MyDrive/isometric-waterloo"
 os.makedirs(WORK, exist_ok=True)
 
-for name in ["render.png", "meta.json"]:
+for name in [INPUT, "meta.json"]:
     if not os.path.exists(f"{WORK}/{name}"):
         from google.colab import files
         print(f"Upload {name}:")
@@ -73,7 +94,7 @@ for name in ["render.png", "meta.json"]:
             open(f"{WORK}/{name if k.startswith(name.split('.')[0]) else k}", "wb").write(v)
 
 meta = json.load(open(f"{WORK}/meta.json"))
-render = np.array(Image.open(f"{WORK}/render.png").convert("RGB"))
+render = np.array(Image.open(f"{WORK}/{INPUT}").convert("RGB"))
 H, W = render.shape[:2]
 bg = np.array([int(meta["background"][i:i + 2], 16) for i in (1, 3, 5)])
 is_bg = np.all(np.abs(render.astype(int) - bg) <= 3, axis=-1)
@@ -92,9 +113,8 @@ vae = AutoencoderKL.from_pretrained("madebyollin/sdxl-vae-fp16-fix", torch_dtype
 pipe = StableDiffusionXLControlNetInpaintPipeline.from_pretrained(
     "stabilityai/stable-diffusion-xl-base-1.0", controlnet=controlnet, vae=vae,
     torch_dtype=torch.float16, variant="fp16", use_safetensors=True)
-if LORA_SCALE > 0:
-    pipe.load_lora_weights("nerijs/pixel-art-xl", weight_name="pixel-art-xl.safetensors", adapter_name="pixel")
-    pipe.set_adapters(["pixel"], adapter_weights=[LORA_SCALE])
+pipe.load_lora_weights("nerijs/pixel-art-xl", weight_name="pixel-art-xl.safetensors", adapter_name="pixel")
+pipe.set_adapters(["pixel"], adapter_weights=[LORA_SCALE])  # LORA_SCALE = 0 turns the pixel-art style off
 try:
     pipe.to("cuda")
 except torch.cuda.OutOfMemoryError:
