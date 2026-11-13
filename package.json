@@ -1,0 +1,17 @@
+{
+  "name": "isometric-waterloo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "fetch": "bash scripts/fetch_osm.sh",
+    "scene": "node scripts/build_scene.mjs",
+    "export": "node scripts/export.mjs",
+    "serve": "node scripts/serve.mjs",
+    "site": "node scripts/build_site.mjs",
+    "notebook": "python3 colab/make_notebook.py"
+  },
+  "dependencies": {
+    "playwright": "^1.65.0",
+    "three": "^0.170.0"
+  }
+}
