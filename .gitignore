@@ -3,3 +3,4 @@ out/*.png
 out/*.json
 .DS_Store
 site/
+.google-maps-key

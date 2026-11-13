@@ -4,6 +4,7 @@
 // URL params: ?scale=2.5 (pixels per metre)  &azimuth=-45 (camera direction, degrees)  &preview=1
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { createGoogleLayer } from './google_tiles.js';
 
 const params = new URLSearchParams(location.search);
 export const CONFIG = {
@@ -228,7 +229,12 @@ async function run() {
   status('loading scene…');
   const data = await (await fetch('/data/scene.json')).json();
   status('building geometry…');
-  const { scene, idScene } = buildScenes(data);
+  let { scene, idScene } = buildScenes(data);
+  // ?source=google&key=... uses Google Photorealistic 3D Tiles for colour; OSM still drives the ID map.
+  const google = params.get('source') === 'google'
+    ? await createGoogleLayer({ apiKey: params.get('key'), origin: data.origin, errorTarget: Number(params.get('error') || 3), status })
+    : null;
+  if (google) scene = google.scene;
   const { cam, right, up } = makeCamera();
   const L = computeLayout(data, right, up);
   const S = CONFIG.scale, T = CONFIG.tile;
@@ -265,6 +271,13 @@ async function run() {
   const ictx = idCanvas.getContext('2d');
   ictx.imageSmoothingEnabled = false;
 
+  if (google) {
+    const half = T / 2 / S;
+    Object.assign(cam, { left: -half, right: half, top: half, bottom: -half });
+    cam.updateProjectionMatrix();
+    const g = await google.calibrateGround(renderer, cam, T);
+    console.log(`ground at ${g.toFixed(1)} m above the ellipsoid`);
+  }
   const cols = L.W / T, rows = L.H / T;
   for (let ty = 0; ty < rows; ty++) {
     for (let tx = 0; tx < cols; tx++) {
@@ -273,7 +286,8 @@ async function run() {
       cam.top = L.top - (ty * T) / S;
       cam.bottom = L.top - ((ty + 1) * T) / S;
       cam.updateProjectionMatrix();
-      renderer.render(scene, cam);
+      if (google) await google.renderLoaded(renderer, cam, T);
+      else renderer.render(scene, cam);
       mctx.drawImage(renderer.domElement, tx * T, ty * T);
       idRenderer.render(idScene, cam);
       ictx.drawImage(idRenderer.domElement, 0, 0, T, T, (tx * T) / D, (ty * T) / D, T / D, T / D);
