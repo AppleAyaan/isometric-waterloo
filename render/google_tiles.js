@@ -3,15 +3,21 @@
 // x = east, y = up, z = south, ground at y = 0.
 import * as THREE from 'three';
 import { TilesRenderer } from '3d-tiles-renderer';
-import { GoogleCloudAuthPlugin, GLTFExtensionsPlugin, ReorientationPlugin } from '3d-tiles-renderer/plugins';
+import { GoogleCloudAuthPlugin, CesiumIonAuthPlugin, GLTFExtensionsPlugin, ReorientationPlugin } from '3d-tiles-renderer/plugins';
+
+// Cesium ion's copy of Google Photorealistic 3D Tiles (add it to your ion account from the Asset Depot).
+export const ION_GOOGLE_ASSET_ID = 2275207;
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-export async function createGoogleLayer({ apiKey, origin, errorTarget = 3, status = () => {} }) {
+// Pass apiKey (Google Map Tiles API) or ionToken (Cesium ion access token).
+export async function createGoogleLayer({ apiKey, ionToken, origin, errorTarget = 3, status = () => {} }) {
   const scene = new THREE.Scene();
   const tiles = new TilesRenderer();
-  tiles.registerPlugin(new GoogleCloudAuthPlugin({ apiToken: apiKey, autoRefreshToken: true }));
+  tiles.registerPlugin(ionToken
+    ? new CesiumIonAuthPlugin({ apiToken: ionToken, assetId: ION_GOOGLE_ASSET_ID, autoRefreshToken: true })
+    : new GoogleCloudAuthPlugin({ apiToken: apiKey, autoRefreshToken: true }));
   const draco = new DRACOLoader().setDecoderPath('/node_modules/three/examples/jsm/libs/draco/gltf/');
   tiles.registerPlugin(new GLTFExtensionsPlugin({ dracoLoader: draco }));
   tiles.registerPlugin(new ReorientationPlugin({

@@ -230,9 +230,10 @@ async function run() {
   const data = await (await fetch('/data/scene.json')).json();
   status('building geometry…');
   let { scene, idScene } = buildScenes(data);
-  // ?source=google&key=... uses Google Photorealistic 3D Tiles for colour; OSM still drives the ID map.
-  const google = params.get('source') === 'google'
-    ? await createGoogleLayer({ apiKey: params.get('key'), origin: data.origin, errorTarget: Number(params.get('error') || 3), status })
+  // ?source=google&key=... or ?source=ion&ion=... uses Google Photorealistic 3D Tiles for colour; OSM still drives the ID map.
+  const source = params.get('source');
+  const google = source === 'google' || source === 'ion'
+    ? await createGoogleLayer({ apiKey: params.get('key'), ionToken: source === 'ion' ? params.get('ion') : null, origin: data.origin, errorTarget: Number(params.get('error') || 3), status })
     : null;
   if (google) scene = google.scene;
   const { cam, right, up } = makeCamera();

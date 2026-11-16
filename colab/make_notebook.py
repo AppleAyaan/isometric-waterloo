@@ -10,8 +10,9 @@ md("""
 
 Turns an isometric render into a painted map (`map.png`), using a pipeline like isometric.nyc's, with free models only.
 Two looks:
-* **painted** (the default): a light repaint of `photo.png` (Google 3D Tiles render) into a clean illustrated map, the Tiny Toronto look
-* **pixel art**: repaints `render.png` (OSM whitebox) as 90s game art, the isometric.nyc look
+* **painted**: a light repaint of `photo.png` (Google 3D Tiles render) into a clean illustrated map, the Tiny Toronto look
+* **photo pixel art** (the default): repaints `photo.png` as 90s game art, keeping the real buildings, the isometric.nyc look
+* **pixel art**: the same style from `render.png` (OSM whitebox); no Google key needed, but building details are made up
 
 How it works:
 
@@ -38,8 +39,8 @@ code("""
 
 code("""
 # @title 2. Settings
-STYLE = "painted (Tiny Toronto look, use photo.png)"  # @param ["painted (Tiny Toronto look, use photo.png)", "pixel art (isometric.nyc look)", "custom"]
-INPUT = "photo.png"  # @param ["photo.png", "render.png"]
+STYLE = "photo pixel art (isometric.nyc look, real buildings, use photo.png)"  # @param ["photo pixel art (isometric.nyc look, real buildings, use photo.png)", "pixel art (from render.png, no Google key needed)", "painted (Tiny Toronto look, use photo.png)", "custom"]
+INPUT = "render.png"  # @param ["render.png", "photo.png"]  (presets set this for you; only used by "custom")
 PROMPT = "isometric pixel art of a university campus, 90s city builder game style, detailed buildings with windows and flat rooftops, lush round trees, grey roads, parking lots, crisp clean pixels, vibrant colors, high detail"  # @param {type:"string"}
 NEGATIVE = "blurry, photo, photorealistic, 3d render, smooth gradients, text, watermark, signature, people, noise, jpeg artifacts, perspective distortion, fisheye"  # @param {type:"string"}
 STEPS = 30  # @param {type:"integer"}
@@ -63,8 +64,12 @@ PRESETS = {
     "painted": dict(PROMPT="highly detailed digital painting of a city seen from above, miniature illustrated map, clean crisp building edges, "
                            "clear windows and rooftops, lush trees, soft painterly textures, warm sunlight, vibrant natural colors",
                     NEGATIVE="blurry, melted, warped buildings, smudged, noise, text, watermark, people, cartoon, pixel art, fisheye",
-                    STRENGTH=0.35, CONTROL_SCALE=0.6, LORA_SCALE=0.0, GUIDANCE=6.0, PIXEL_SIZE=1, PALETTE_COLORS=0),
-    "pixel art": dict(),  # the values above
+                    STRENGTH=0.35, CONTROL_SCALE=0.6, LORA_SCALE=0.0, GUIDANCE=6.0, PIXEL_SIZE=1, PALETTE_COLORS=0,
+                    INPUT="photo.png"),
+    "pixel art": dict(INPUT="render.png"),  # the values above; paints the OSM whitebox, no Google key needed
+    # Pixel art over the Google photo render: real roofs, colours and materials, like isometric.nyc.
+    # Lower STRENGTH keeps more of the real building; higher looks more like pixel art.
+    "photo pixel art": dict(INPUT="photo.png", STRENGTH=0.5, CONTROL_SCALE=0.6),
 }
 for key, values in PRESETS.items():
     if STYLE.startswith(key):
