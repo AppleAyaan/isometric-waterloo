@@ -22,6 +22,13 @@ OpenStreetMap ──► scene.json ──► three.js isometric render ──►
 
 Setup: `npm install` (export uses your installed Google Chrome via Playwright).
 
+### Google 3D Tiles via Cesium ion (no Google Cloud account)
+1. Sign up at https://ion.cesium.com, open **Asset Depot**, and add **Google Photorealistic 3D Tiles** to My Assets.
+2. Under **Access Tokens**, copy the default token (or create one that can read that asset) into `.cesium-ion-token` (git-ignored).
+3. `npm run export -- --source ion` renders `out/photo.png`, same as the Google source below.
+
+The Cesium ion free plan is for personal, non-commercial use.
+
 ### Google Photorealistic 3D Tiles (the Tiny Toronto look)
 1. In Google Cloud Console, create a project, enable the **Map Tiles API**, and create an API key.
 2. Save the key in `.google-maps-key` in the project root (git-ignored).

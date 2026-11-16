@@ -4,3 +4,4 @@ out/*.json
 .DS_Store
 site/
 .google-maps-key
+.cesium-ion-token

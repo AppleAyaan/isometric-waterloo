@@ -2,7 +2,7 @@
 //   out/render.png   – isometric whitebox mosaic (input for the Colab painter)
 //   out/idmap.png    – building ID map (R + G*256 = building id), for hover
 //   out/meta.json    – mosaic size, projection and building info/outlines
-// Usage: node scripts/export.mjs [--scale 2.5] [--azimuth -45]
+// Usage: node scripts/export.mjs [--scale 2.5] [--azimuth -45] [--source osm|google|ion]
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -13,7 +13,8 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
 const arg = (name, def) => { const i = args.indexOf(`--${name}`); return i >= 0 ? args[i + 1] : def; };
 const source = arg('source', 'osm');
-const scale = arg('scale', source === 'google' ? '3' : '2.5'), azimuth = arg('azimuth', '-45');
+const photo = source === 'google' || source === 'ion';
+const scale = arg('scale', photo ? '3' : '2.5'), azimuth = arg('azimuth', '-45');
 let key = process.env.GOOGLE_MAPS_API_KEY;
 const keyFile = path.join(ROOT, '.google-maps-key');
 if (!key && fs.existsSync(keyFile)) key = fs.readFileSync(keyFile, 'utf8').trim();
@@ -21,8 +22,15 @@ if (source === 'google' && !key) {
   console.error('Google source needs an API key: put it in .google-maps-key (git-ignored) or set GOOGLE_MAPS_API_KEY.');
   process.exit(1);
 }
-// whitebox -> render.png ; google -> photo.png. ID map and meta are shared (same projection).
-const colourName = source === 'google' ? 'photo.png' : 'render.png';
+let ion = process.env.CESIUM_ION_TOKEN;
+const ionFile = path.join(ROOT, '.cesium-ion-token');
+if (!ion && fs.existsSync(ionFile)) ion = fs.readFileSync(ionFile, 'utf8').trim();
+if (source === 'ion' && !ion) {
+  console.error('ion source needs a Cesium ion access token: put it in .cesium-ion-token (git-ignored) or set CESIUM_ION_TOKEN.');
+  process.exit(1);
+}
+// whitebox -> render.png ; google/ion -> photo.png. ID map and meta are shared (same projection).
+const colourName = photo ? 'photo.png' : 'render.png';
 
 const port = 8765;
 const server = await startServer(port);
@@ -32,7 +40,7 @@ try {
   page.on('console', (m) => { if (m.type() === 'error') console.error('[page]', m.text()); });
   page.on('pageerror', (e) => console.error('[page error]', e.message));
   page.on('console', (m) => { if (m.type() === 'log' || m.type() === 'warning') console.log('[page]', m.text()); });
-  const q = new URLSearchParams({ scale, azimuth, source, ...(key ? { key } : {}) });
+  const q = new URLSearchParams({ scale, azimuth, source, ...(source === 'google' ? { key } : {}), ...(source === 'ion' ? { ion } : {}) });
   await page.goto(`http://localhost:${port}/render/?${q}`);
   await page.waitForFunction(() => typeof window.exportMap === 'function');
   const t0 = Date.now();
