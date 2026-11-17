@@ -49,7 +49,6 @@
     :root[data-night] #help .stats span { background: rgba(254, 211, 76, .18); }
     @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { :root[data-night] .chip { background: rgba(32, 28, 58, .95); } }
     * { box-sizing: border-box; }
-    body { transition: background-color .9s; }
     html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font: 14px/1.4 Inter, system-ui, sans-serif; overflow: hidden; -webkit-tap-highlight-color: transparent; }
     button { font: inherit; color: inherit; }
     :focus-visible { outline: 2px solid var(--gold-deep); outline-offset: 2px; }
@@ -439,6 +438,9 @@
     const nightBtn = $('night'), themeColor = document.querySelector('meta[name=theme-color]');
     let nightOn = false, nightLayer = null, nightFade = 0, nightLevel = 0;
     const mixHex = (a, b, k) => '#' + [0, 2, 4].map((i) => Math.round(parseInt(a.slice(1 + i, 3 + i), 16) * (1 - k) + parseInt(b.slice(1 + i, 3 + i), 16) * k).toString(16).padStart(2, '0')).join('');
+    // the page backdrop always matches what the map is actually showing (the night layer's live opacity),
+    // so the edges never run ahead of or lag behind the tiles while they cross-fade or load
+    const syncBg = () => { document.body.style.backgroundColor = mixHex(meta.background, nightInfo.background, nightLayer && nightLayer !== 'loading' ? nightLayer.getOpacity() : 0); };
     // how dark it is, 0 (day) .. 1 (full night). Between, the night map is partly faded in (dusk / dawn).
     function setNightLevel(k, instant) {
       if (!nightInfo) return;
@@ -446,9 +448,8 @@
       const on = k >= 0.5;
       if (on !== nightOn || nightLayer == null) setNight(on, k);
       nightLevel = k;
-      document.body.style.backgroundColor = mixHex(meta.background, nightInfo.background, k);
       window.mapLife?.setNightLevel(k);
-      if (nightLayer && nightLayer !== 'loading') { if (instant) { cancelAnimationFrame(nightFade); nightLayer.setOpacity(k); viewer.world.getItemAt(0).setOpacity(k > 0.999 ? 0 : 1); } else fadeNight(k); }
+      if (nightLayer && nightLayer !== 'loading') { if (instant) { cancelAnimationFrame(nightFade); nightLayer.setOpacity(k); viewer.world.getItemAt(0).setOpacity(k > 0.999 ? 0 : 1); syncBg(); } else fadeNight(k); }
     }
     function fadeNight(to) {
       cancelAnimationFrame(nightFade);
@@ -458,6 +459,7 @@
         nightLayer.setOpacity(from + (to - from) * e);
         // with the night map fully over it, hide the day map so no sliver of it shows at the edges
         viewer.world.getItemAt(0).setOpacity(nightLayer.getOpacity() > 0.999 ? 0 : 1);
+        syncBg();
         if (u < 1) nightFade = requestAnimationFrame(tick);
       };
       nightFade = requestAnimationFrame(tick);
@@ -466,7 +468,7 @@
       if (!nightInfo) return;
       nightOn = on; nightLevel = level;
       document.documentElement.toggleAttribute('data-night', on);
-      document.body.style.backgroundColor = mixHex(meta.background, nightInfo.background, level);
+      syncBg();
       themeColor.content = on ? nightInfo.background : meta.background;
       nightBtn.classList.toggle('on', on);
       nightBtn.setAttribute('aria-pressed', String(on));
@@ -484,7 +486,7 @@
           const go = () => fadeNight(nightLevel);
           if (e.item.getFullyLoaded?.()) go(); else { e.item.addOnceHandler('fully-loaded-change', go); setTimeout(go, 2500); }
         },
-        error: () => { clearTimeout(slow); nightLayer = null; toast("Couldn't load the night map"); setNight(false); },
+        error: () => { clearTimeout(slow); nightLayer = null; toast("Couldn't load the night map"); setNight(false); syncBg(); },
       });
     }
 
