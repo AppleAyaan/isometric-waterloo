@@ -940,6 +940,58 @@ window.startTraffic = function startTraffic({ viewer, data: T, occluded, canvas,
   // keep animating even if one frame throws (log the first error only)
   // paused: nothing moves or draws, and the clock does not jump when it resumes
   let enabled = true;
+  let night = 0, nightTarget = 0;
+  // A ground-level glow ahead of a vehicle: a soft cone, `reach` metres long.
+  function beam(x, y, hx, hy, half, reach, alpha) {
+    const nx = -hy, ny = hx, a = toScreen(x, y, 0.05), b = toScreen(x + hx * reach, y + hy * reach, 0.05);
+    const g = ctx.createLinearGradient(a[0], a[1], b[0], b[1]);
+    g.addColorStop(0, `rgba(255,226,160,${alpha})`); g.addColorStop(1, 'rgba(255,226,160,0)');
+    poly([[x + nx * half, y + ny * half], [x - nx * half, y - ny * half],
+      [x + hx * reach - nx * half * 2.4, y + hy * reach - ny * half * 2.4], [x + hx * reach + nx * half * 2.4, y + hy * reach + ny * half * 2.4]]
+      .map(([px, py]) => toScreen(px, py, 0.05)));
+    ctx.fillStyle = g; ctx.fill();
+  }
+  function glow(p, rPx, rgb, alpha) {
+    const s = toScreen(...p), g = ctx.createRadialGradient(s[0], s[1], 0, s[0], s[1], rPx);
+    g.addColorStop(0, `rgba(${rgb},${alpha})`); g.addColorStop(0.35, `rgba(${rgb},${alpha * 0.35})`); g.addColorStop(1, `rgba(${rgb},0)`);
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(s[0], s[1], rPx, 0, Math.PI * 2); ctx.fill();
+  }
+  function drawNight(items, small) {
+    const dpr = devicePixelRatio || 1;
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalCompositeOperation = 'source-atop'; // only over what is already drawn: the vehicles, people and geese
+    ctx.fillStyle = `rgba(18,14,42,${(0.68 * night).toFixed(3)})`;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.globalCompositeOperation = 'lighter';
+    const k = night, r = (m, min) => Math.max(min, m * pxPerM);
+    for (const q of items) {
+      const v = q.v;
+      if (q.hidden || !v || !(v.type === 'car' || v.type === 'bus' || v.type === 'ion')) continue;
+      const { x, y } = q;
+      const { hx, hy } = q; // already the direction of travel (section 0 is the leading cab)
+      const L = v.type === 'ion' ? ION_SEGS[q.seg] : v.L, nx = -hy, ny = hx, half = v.W / 2 - 0.25;
+      const front = v.type !== 'ion' || q.seg === 0, back = v.type !== 'ion' || q.seg === ION_SEGS.length - 1;
+      const fz = v.type === 'car' ? 0.55 : 0.75;
+      if (front) {
+        if (!small) beam(x + hx * L / 2, y + hy * L / 2, hx, hy, half, v.type === 'car' ? 11 : 14, 0.28 * k);
+        for (const sd of [1, -1]) glow([x + hx * (L / 2 + 0.05) + nx * half * sd, y + hy * (L / 2 + 0.05) + ny * half * sd, fz], r(0.9, 2.2), '255,240,200', 0.85 * k);
+      }
+      if (back) for (const sd of [1, -1]) glow([x - hx * (L / 2 + 0.05) + nx * half * sd, y - hy * (L / 2 + 0.05) + ny * half * sd, fz], r(0.6, 1.6), '255,40,30', 0.7 * k);
+      if (v.type !== 'car' && !small) {
+        // the cabin: a warm band at window height along whichever side faces us
+        const sd = nx * CAM[0] + ny * CAM[1] > 0 ? 1 : -1, z = v.type === 'ion' ? 1.7 : v.dd ? 2.9 : 1.7;
+        const o = [x + nx * (v.W / 2) * sd, y + ny * (v.W / 2) * sd];
+        for (const zz of v.dd ? [1.4, z] : [z]) {
+          ctx.globalAlpha = 0.5 * k;
+          line3([o[0] - hx * L * 0.45, o[1] - hy * L * 0.45, zz], [o[0] + hx * L * 0.45, o[1] + hy * L * 0.45, zz], 'rgba(255,214,150,.55)', 0.9, 1);
+          ctx.globalAlpha = 1;
+        }
+      }
+    }
+    ctx.restore();
+  }
   function frame(now) {
     if (enabled) {
       try { drawFrame(now); } catch (e) { if (!frame.err) { frame.err = e; console.error('map life frame failed', e); } }
@@ -1023,6 +1075,11 @@ window.startTraffic = function startTraffic({ viewer, data: T, occluded, canvas,
       if (!q.hidden) q.draw(q, small);
     }
 
+    // night: dim everything drawn so far to match the night map, then add headlights, tail lights and lit cabins
+    night += (nightTarget - night) * Math.min(1, dt * 2.5);
+    if (Math.abs(night - nightTarget) < 0.005) night = nightTarget;
+    if (night > 0.01) drawNight(items, small);
+
     // cards for buses and trains (anchored above the middle box); too zoomed out to read, they would just bury the map
     const compact = pxPerM < 1.1;
     cardLayer.style.visibility = pxPerM < 0.3 ? 'hidden' : '';
@@ -1063,7 +1120,7 @@ window.startTraffic = function startTraffic({ viewer, data: T, occluded, canvas,
 
   }
   // handy for poking at in devtools; the viewer uses setEnabled / isEnabled for its play-pause button
-  window.mapLife = { cars, buses, trains, crossings, games, geese, setEnabled, isEnabled: () => enabled };
+  window.mapLife = { cars, buses, trains, crossings, games, geese, setEnabled, isEnabled: () => enabled, setNight: (on) => { nightTarget = on ? 1 : 0; } };
   // let things settle a little before the first frame
   for (let i = 0; i < 60; i++) step(0.1);
   requestAnimationFrame(frame);
