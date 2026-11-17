@@ -20,11 +20,7 @@ onApp((app) => {
     #sky-cool { mix-blend-mode: multiply; }
     #sky-dim { mix-blend-mode: multiply; }
     #wxc { transition: none; opacity: 1; }
-    #wx { display: none; margin-left: 2px; }
-    #wx.on { display: inline; }
-    #wx svg { width: 12px; height: 12px; vertical-align: -2px; margin: 0 3px 0 1px; color: var(--gold-deep); }
-    #wx b { font: inherit; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
-    @media (max-width: 900px) { #wx .lb { display: none; } }
+    #clock .meta > #wx:not(.on) { display: none; }
   `;
   document.head.appendChild(css);
   const mk = (tag, id) => { const e = document.createElement(tag); e.id = id; e.className = 'skyl'; e.setAttribute('aria-hidden', 'true'); return e; };
@@ -154,7 +150,7 @@ onApp((app) => {
   // after every module has registered, so the sound module hears the first state
   setTimeout(publish, 0);
 
-  // the weather bit of the clock chip: "· ☁ 4°C Light snow" (just icon + temperature on narrow screens)
+  // the weather bit of the clock chip: icon + temperature (the description is in its tooltip)
   const sub = document.getElementById('clocksub'), wx = document.createElement('span');
   wx.id = 'wx';
   sub?.after(wx);
@@ -164,9 +160,10 @@ onApp((app) => {
     if (!w) return;
     const night = app.getNightLevel() > 0.5;
     const ic = w.kind === 'clear' || (w.kind === 'cloudy' && w.cloudCover < 60) ? (night ? 'moon' : 'sun') : w.kind === 'cloudy' ? 'cloud' : w.kind;
-    const t = w.temp == null ? '' : `<b>${Math.round(w.temp) === 0 ? 0 : Math.round(w.temp)}°C</b> `;
-    wx.innerHTML = ` · <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[ic]}</svg>${t}<span class="lb">${w.label}</span>`;
+    const t = w.temp == null ? w.label : `<b>${Math.round(w.temp) === 0 ? 0 : Math.round(w.temp)}°</b>`;
+    wx.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[ic]}</svg>${t}`;
     wx.title = `${w.label}${w.temp == null ? '' : ', ' + Math.round(w.temp) + '°C'}, wind ${Math.round(w.wind)} km/h${override ? ' (demo)' : ' · Open-Meteo'}`;
+    wx.setAttribute('aria-label', wx.title);
   }
   // keep the sun/moon icon right as night falls
   app.onTick(() => { if (app.weather) showChip(); });

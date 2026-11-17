@@ -26,18 +26,18 @@ onApp((app) => {
   // MC's long west wall runs about (208, 28) -> (228, -20) in scene metres (from the footprint in meta.json);
   // it faces the camera, so the tie hangs flat against it from just under the roof (MC is ~26 m tall).
   const TIE_U = [0.385, -0.923], TIE_N = [-0.923, -0.385], TIE_C = [218.2, 3.9];
-  const TIE_DROP = 5; // metres below the drawn heights, so the knot sits clear of the roofline
+  const TIE_DROP = 8; // metres below the drawn heights, so the knot sits clear of the roofline
   function drawTie(q, small) {
     const sway = app.reduceMotion ? 0 : Math.sin(tnow() * 0.9) * 0.25;
     const at = (u, h) => { const s = (25 - h) / 20; return [TIE_C[0] + TIE_U[0] * (u + sway * s * s) , TIE_C[1] + TIE_U[1] * (u + sway * s * s), h - TIE_DROP]; };
     const knot = [at(-1.15, 25.3), at(1.15, 25.3), at(0.8, 22.7), at(-0.8, 22.7)];
-    const blade = [at(-0.8, 22.7), at(0.8, 22.7), at(2.0, 10.5), at(0, 7.8), at(-2.0, 10.5)];
+    const blade = [at(-0.8, 22.7), at(0.8, 22.7), at(2.0, 13), at(0, 10.5), at(-2.0, 13)];
     // the wall's own shadow under the tie, so it reads as hanging off the building
     fill(blade.map(([x, y, h]) => [x - TIE_N[0] * 0.05 + 0.25, y - TIE_N[1] * 0.05 - 0.25, h - 0.4]), 'rgba(40,20,30,.22)');
     fill(blade, '#ff5fae');
     if (!small) { // diagonal stripes, clipped to the blade
       ctx.save(); api.poly(blade.map((p) => api.toScreen(...p))); ctx.clip();
-      for (let h = 21.5; h > 7; h -= 2.6) fill([at(-3, h), at(3, h - 1.6), at(3, h - 2.4), at(-3, h - 0.8)], '#e8479a');
+      for (let h = 21.5; h > 10; h -= 2.6) fill([at(-3, h), at(3, h - 1.6), at(3, h - 2.4), at(-3, h - 0.8)], '#e8479a');
       ctx.restore();
     }
     fill(knot, '#f0509f');
@@ -147,15 +147,12 @@ onApp((app) => {
   // ---------- card ----------
   const css = document.createElement('style');
   css.textContent = `
-    #eggcard { right: 16px; bottom: calc(40px + var(--safe-b, 0px)); width: 320px; max-width: calc(100vw - 32px); padding: 16px 18px; display: none; z-index: 3; }
+    #eggcard { right: 16px; bottom: calc(40px + var(--safe-b, 0px)); width: 320px; max-width: calc(100vw - 32px); padding: var(--sp-4); border-radius: var(--r-panel); display: none; z-index: 3; }
     #eggcard.show { display: block; animation: rise .22s ease-out; }
-    #eggcard h2 { margin: 6px 28px 6px 0; font-size: 16px; line-height: 1.25; }
-    #eggcard p { margin: 0 0 8px; font-size: 13px; line-height: 1.45; color: var(--ink); }
-    #eggcard .egg-note { color: var(--muted); font-size: 12px; margin: 0; }
-    #eggcard .x { position: absolute; top: 8px; right: 10px; width: 28px; height: 28px; border-radius: 9px; background: none; border: 0; color: var(--muted); font-size: 20px; line-height: 1; cursor: pointer; }
-    #eggcard .x:hover { background: rgba(255, 255, 255, .6); color: var(--ink); }
-    :root[data-night] #eggcard .x:hover { background: rgba(255, 255, 255, .12); }
-    #eggcard .egg-tag { display: inline-block; padding: 0 6px; border-radius: 6px; background: #ff5fae; color: #fff; font: 11px/18px Silkscreen, monospace; }
+    #eggcard h2 { margin: 6px 28px 6px 0; }
+    #eggcard p { margin: 0 0 8px; font-size: var(--fs-body); line-height: 1.45; color: var(--ink); }
+    #eggcard .egg-note { color: var(--muted); font-size: var(--fs-meta); margin: 0; }
+    #eggcard .egg-tag { display: inline-block; padding: 0 6px; border-radius: var(--r-tag); background: #ff5fae; color: #fff; font: 11px/18px Silkscreen, monospace; }
     #eggcard .egg-tag.eng { background: var(--gold); color: #1f1c17; }
     @media (max-width: 640px) { #eggcard { left: 16px; right: 16px; width: auto; bottom: calc(52px + var(--safe-b, 0px)); } }
   `;

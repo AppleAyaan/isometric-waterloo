@@ -5,7 +5,7 @@
 // - events: orientation week (stage near the SLC, gold & black crowds), homecoming at Warrior Field,
 //   convocation outside the PAC (gowns + mortarboards), exam season (libraries lit late, 2 am walkers),
 //   reading weeks and winter break (quiet)
-// - a "today on campus" line in the clock chip when something is on
+// - an "on campus now" card under the clock when something is on
 // The dates are rules (nth weekday of a month, fixed windows), so they work every year. Approximate, not official.
 onApp((app) => {
   const L = window.mapLife;
@@ -343,34 +343,65 @@ onApp((app) => {
     api.paint(api.prism(x - hx * 1.2, y - hy * 1.2, hx, hy, 3.0, 9.6, 4.7, 5.3), { side: '#f4f1ea', top: '#fdf8ec' });
   }
 
-  // ---------- "today on campus" line in the clock chip ----------
+  // ---------- "on campus now" card: pops out under the clock when something is on ----------
   const css = document.createElement('style');
   css.textContent = `
-    #clock .campus-ev { display: none; align-items: center; gap: 5px; margin-top: 2px; font-size: 11px; font-weight: 600; color: var(--ink); max-width: 230px; overflow: hidden; text-overflow: ellipsis; }
-    #clock .campus-ev.on { display: flex; }
-    #clock .campus-ev i { flex: none; width: 6px; height: 6px; border-radius: 2px; background: var(--gold); box-shadow: 0 0 0 1px var(--gold-deep) inset; transform: rotate(45deg); }
-    #clock .campus-ev span { overflow: hidden; text-overflow: ellipsis; }
-    #clock .campus-ev em { font-style: normal; font-weight: 400; color: var(--muted); }
+    #evcard { left: 50%; translate: -50% 0; z-index: 2; display: flex; align-items: center; gap: 10px; padding: 7px 14px 7px 7px; max-width: min(340px, calc(100vw - 32px));
+      opacity: 0; scale: .96; pointer-events: none; transition: opacity .25s, scale .25s, top .25s; transform-origin: 50% 0; }
+    #evcard.on { opacity: 1; scale: 1; pointer-events: auto; }
+    #evcard.narrow { left: 16px; translate: none; transform-origin: 0 0; }
+    #evcard .evi { flex: none; width: 30px; height: 30px; display: grid; place-items: center; border-radius: var(--r-ctl); background: var(--gold); color: #1f1c17; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .5); }
+    #evcard .evi svg { width: 16px; height: 16px; }
+    #evcard .evt { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
+    #evcard b { font-size: var(--fs-body); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #evcard small { font-size: var(--fs-meta); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   `;
   document.head.appendChild(css);
-  const tx = document.querySelector('#clock .tx');
-  const pill = document.createElement('small');
-  pill.className = 'campus-ev';
-  pill.innerHTML = '<i></i><span></span>';
-  tx?.appendChild(pill);
-  let pillText = '';
+  const ic = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+  const EV_ICON = {
+    classes: ic('<circle cx="9" cy="7" r="3"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M16 4.2a3 3 0 0 1 0 5.6M21 20a6 6 0 0 0-3.5-5.5"/>'),
+    frosh: ic('<path d="M5 21V4"/><path d="M5 4h12l-2.5 4L17 12H5"/>'),
+    homecoming: ic('<path d="M8 21h8M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 6H4a3 3 0 0 0 3 4M17 6h3a3 3 0 0 1-3 4"/>'),
+    convocation: ic('<path d="m2 9 10-5 10 5-10 5z"/><path d="M6 11v5c3 2.5 9 2.5 12 0v-5"/><path d="M22 9v6"/>'),
+    exams: ic('<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/>'),
+    reading: ic('<path d="M17 8h1a4 4 0 0 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4z"/><path d="M7 2v3M11 2v3"/>'),
+    break: ic('<path d="M12 2v20M3.3 7l17.4 10M3.3 17 20.7 7"/><path d="m9 4 3 2 3-2M9 20l3-2 3 2"/>'),
+  };
+  const evcard = document.createElement('div');
+  evcard.id = 'evcard'; evcard.className = 'chip';
+  evcard.setAttribute('role', 'status'); evcard.setAttribute('aria-live', 'polite');
+  evcard.innerHTML = '<span class="evi"></span><div class="evt"><b></b><small></small></div>';
+  document.body.appendChild(evcard);
+  // sits just under the clock; on narrow screens the clock lives in the title card, so under that
+  const clockEl = document.getElementById('clock'), titleEl = document.getElementById('title');
+  function placeCard() {
+    const narrow = !!clockEl?.closest('#title'), r = (narrow ? titleEl : clockEl)?.getBoundingClientRect();
+    if (!r) return;
+    evcard.classList.toggle('narrow', narrow);
+    evcard.style.top = Math.round(r.bottom + 8) + 'px';
+  }
+  addEventListener('resize', placeCard);
+  if (window.ResizeObserver && titleEl) new ResizeObserver(placeCard).observe(titleEl);
+  let cardKey = '';
   function showPill(cal, t) {
     // most interesting event first; exam season only says "open late" when it's late
     const order = ['frosh', 'homecoming', 'convocation', 'exams', 'reading', 'break'];
     const e = [...cal.events].sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id))[0];
-    let text = '';
-    if (e) text = `${app.esc(e.label)} <em>· ${app.esc(e.id === 'exams' && !(t.h >= 20 || t.h < 5) ? 'study spaces packed' : e.sub)}</em>`;
-    else if (classChange(t, cal) > 0.5 && t.mins > 8 * 60 + 40) text = 'Class change <em>· students between buildings</em>';
-    if (text === pillText) return;
-    pillText = text;
-    pill.querySelector('span').innerHTML = text;
-    pill.classList.toggle('on', !!text);
-    pill.title = text.replace(/<[^>]+>/g, '');
+    let it = null;
+    if (e) it = { icon: e.id, title: e.label, sub: e.id === 'exams' && !(t.h >= 20 || t.h < 5) ? 'Study spaces packed' : e.sub };
+    else if (classChange(t, cal) > 0.5 && t.mins > 8 * 60 + 40) it = { icon: 'classes', title: 'Class change', sub: 'Students heading between buildings' };
+    else if (classChange(t, cal) > 0.5) it = { icon: 'classes', title: 'Morning rush', sub: 'Students arriving for 8:30 classes' };
+    const key = it ? it.icon + it.title + it.sub : '';
+    placeCard();
+    if (key === cardKey) return;
+    cardKey = key;
+    if (it) {
+      evcard.querySelector('.evi').innerHTML = EV_ICON[it.icon] || EV_ICON.classes;
+      evcard.querySelector('b').textContent = it.title;
+      evcard.querySelector('small').textContent = it.sub;
+      evcard.title = `${it.title}: ${it.sub}`;
+    }
+    evcard.classList.toggle('on', !!it);
   }
 
   // ---------- tick: calendar, density, targets ----------

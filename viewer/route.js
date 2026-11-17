@@ -108,21 +108,19 @@
     const css = document.createElement('style');
     css.textContent = `
       #walk { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
-      #walkchip { left: 16px; bottom: calc(56px + var(--safe-b, 0px)); z-index: 3; padding: 10px 12px 10px 14px; border-radius: 16px; display: none;
+      #walkchip { left: 16px; bottom: calc(56px + var(--safe-b, 0px)); z-index: 3; padding: 12px 12px 12px 14px; border-radius: var(--r-panel); display: none;
         max-width: min(380px, calc(100vw - 32px)); }
       #walkchip.show { display: block; animation: rise .22s ease-out; }
       #walkchip .row { display: flex; align-items: center; gap: 8px; }
       #walkchip .ic { width: 20px; height: 20px; flex: none; color: var(--gold-deep); }
-      #walkchip .ttl { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
+      #walkchip .ttl { font-weight: 600; font-size: var(--fs-title); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
       #walkchip .ttl .code { margin-right: 0; }
       #walkchip .arrow { color: var(--muted); margin: 0 5px; }
-      #walkchip .sub { color: var(--muted); font-size: 12.5px; margin: 3px 0 0 28px; }
+      #walkchip .sub { color: var(--muted); font-size: var(--fs-meta); margin: 3px 0 0 28px; }
       #walkchip .sub b { color: var(--ink); font-weight: 600; }
       #walkchip .acts { display: flex; gap: 6px; margin: 8px 0 0 28px; }
-      #walkchip .acts .btn { padding: 5px 9px; font-size: 12px; }
-      #walkchip .x { width: 26px; height: 26px; border-radius: 8px; border: 0; background: none; color: var(--muted); font-size: 19px; line-height: 1; cursor: pointer; flex: none; }
-      #walkchip .x:hover { background: rgba(255, 255, 255, .6); color: var(--ink); }
-      :root[data-night] #walkchip .x:hover { background: rgba(255, 255, 255, .12); }
+      #walkchip .acts .btn { padding: 5px 9px; font-size: var(--fs-meta); }
+      #walkchip .x { position: static; flex: none; }
       #card .walkacts { margin-top: 6px; }
       @media (max-width: 600px) {
         #walkchip { right: 16px; bottom: calc(52px + var(--safe-b, 0px)); max-width: none; }

@@ -35,9 +35,9 @@ onApp((app) => {
   const css = document.createElement('style');
   css.textContent = `
     #tl { left: 50%; transform: translateX(-50%); bottom: calc(50px + var(--safe-b, 0px)); width: min(680px, calc(100vw - 32px)); z-index: 3;
-      padding: 8px 10px; border-radius: 16px; display: none; align-items: center; gap: 10px; }
+      padding: 8px 10px; border-radius: var(--r-bar); display: none; align-items: center; gap: 10px; }
     #tl.open { display: flex; }
-    #tl .tl-play { width: 36px; height: 36px; flex: none; border-radius: 11px; border: 0; background: var(--gold); color: #1f1c17; display: grid; place-items: center; cursor: pointer; }
+    #tl .tl-play { width: 36px; height: 36px; flex: none; border-radius: var(--r-ctl); border: 0; background: var(--gold); color: #1f1c17; display: grid; place-items: center; cursor: pointer; }
     #tl .tl-play svg { width: 16px; height: 16px; }
     #tl .tl-play .pause, #tl.playing .tl-play .play { display: none; }
     #tl.playing .tl-play .pause { display: inline; }
@@ -55,11 +55,11 @@ onApp((app) => {
     #tl input[type=range]::-moz-range-track { height: 32px; background: none; }
     #tl input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 22px; margin-top: 5px; border-radius: 6px; background: #fffdf6; border: 2px solid #1f1c17; box-shadow: 0 1px 4px rgba(0, 0, 0, .3); }
     #tl input[type=range]::-moz-range-thumb { width: 12px; height: 18px; border-radius: 6px; background: #fffdf6; border: 2px solid #1f1c17; box-shadow: 0 1px 4px rgba(0, 0, 0, .3); }
-    #tl .tl-speed { display: flex; flex: none; gap: 2px; padding: 2px; border-radius: 10px; background: rgba(120, 100, 60, .1); }
+    #tl .tl-speed { display: flex; flex: none; gap: 2px; padding: 2px; border-radius: var(--r-ctl); background: rgba(120, 100, 60, .1); }
     :root[data-night] #tl .tl-speed { background: rgba(255, 255, 255, .07); }
-    #tl .tl-speed button { border: 0; background: none; color: var(--muted); font: 500 11.5px Inter, system-ui, sans-serif; padding: 5px 7px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
+    #tl .tl-speed button { border: 0; background: none; color: var(--muted); font: 500 11.5px Inter, system-ui, sans-serif; padding: 5px 7px; border-radius: calc(var(--r-ctl) - 2px); cursor: pointer; white-space: nowrap; }
     #tl .tl-speed button[aria-checked=true] { background: var(--gold); color: #1f1c17; }
-    #tl .tl-live { flex: none; padding: 6px 10px; font-size: 12px; }
+    #tl .tl-live { flex: none; padding: 6px 10px; font-size: var(--fs-meta); }
     #tl .tl-live i { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #3fbf6a; }
     @media (max-width: 600px) {
       #tl { left: 16px; right: 16px; width: auto; transform: none; flex-wrap: wrap; gap: 8px; padding: 8px; }
