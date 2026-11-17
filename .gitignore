@@ -1,6 +1,4 @@
 node_modules/
-out/*.png
-out/*.json
 .DS_Store
 site/
 .google-maps-key
