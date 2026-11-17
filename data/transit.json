@@ -80,7 +80,8 @@
     "northNext": "Research & Technology",
     "southNext": "Laurier-Waterloo Park",
     "northTerminus": "Conestoga",
-    "southTerminus": "Fairway"
+    "southTerminus": "Fairway",
+    "footCrossings": ["Path 2 East"]
   },
   "liveries": {
     "GRT": {

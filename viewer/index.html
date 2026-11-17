@@ -353,9 +353,13 @@
     }
 
     // ---- simulated life: traffic, ION + crossings, students, geese, parking labels ----
+    // sheds and signal huts are lower than a bus or train: don't let them swallow whatever stands behind
+    const lowIds = new Set(meta.buildings.filter((b) => b.height && b.height <= 4.5).map((b) => b.id));
     const occluded = (ix, iy) => {
       const x = Math.floor(ix / D), y = Math.floor(iy / D);
-      return x >= 0 && y >= 0 && x < idc.width && y < idc.height && idData[(y * idc.width + x) * 4 + 2] >= 128;
+      if (x < 0 || y < 0 || x >= idc.width || y >= idc.height) return false;
+      const i = (y * idc.width + x) * 4;
+      return idData[i + 2] >= 128 && !lowIds.has(idData[i] + idData[i + 1] * 256);
     };
     const lifeBtn = $('life');
     if (life) {

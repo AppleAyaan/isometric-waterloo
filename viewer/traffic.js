@@ -147,6 +147,36 @@ window.startTraffic = function startTraffic({ viewer, data: T, occluded, canvas,
     return false;
   }
 
+  // ---------- people on the pedestrian crossings: they wait at the edge while the lights flash ----------
+  const walkers = [];
+  const WALK_REACH = 24;
+  const SKIN_ALL = ['#f1c9a5', '#e0ac85', '#c68863', '#8d5a3b', '#5e3b27', '#f5d6bd'];
+  const SHIRTS_ALL = ['#e74c3c', '#3498db', '#f1c40f', '#2ecc71', '#9b59b6', '#ecf0f1', '#e67e22', '#1abc9c', '#34495e', '#fd79a8', '#fed34c'];
+  function placeWalker(w, c, anywhere) {
+    w.c = c; w.dir = Math.random() < 0.5 ? 1 : -1; w.lat = rand(-1, 1);
+    w.u = anywhere ? rand(-WALK_REACH, WALK_REACH) : -w.dir * WALK_REACH;
+    w.pace = rand(1.1, 1.6); w.v = w.pace; w.rest = anywhere ? 0 : rand(0, 9);
+  }
+  for (const c of crossings) if (c.foot) for (let i = 0; i < 5; i++) {
+    const w = { type: 'walker', phase: rand(0, 6), H: rand(1.6, 1.85), shirt: pick(SHIRTS_ALL), pants: pick(['#2d3436', '#34495e', '#5d4e37', '#1e3799', '#636e72']), skin: pick(SKIN_ALL) };
+    placeWalker(w, c, true);
+    walkers.push(w);
+  }
+  function stepWalkers(dt) {
+    for (const w of walkers) {
+      if (w.rest > 0) { w.rest -= dt; w.v = 0; continue; }
+      const c = w.c, edge = c.span / 2 + 1.4;
+      const ahead = -w.u * w.dir; // distance to the crossing centre, along travel
+      let target = w.pace;
+      if (c.active && ahead > edge - 0.2 && ahead < edge + 6) target = Math.max(0, Math.min(w.pace, (ahead - edge) * 0.8)); // wait at the tactile strip
+      w.v += Math.max(-3 * dt, Math.min(2 * dt, target - w.v));
+      w.u += w.v * dt * w.dir;
+      w.phase += w.v * dt * 5.5;
+      if (w.u * w.dir > WALK_REACH) placeWalker(w, c, false);
+    }
+  }
+  const walkerXY = (w) => { const c = w.c; return [c.x + c.rx * w.u - c.ry * w.lat, c.y + c.ry * w.u + c.rx * w.lat]; };
+
   // ---------- students on the fields ----------
   const SKIN = ['#f1c9a5', '#e0ac85', '#c68863', '#8d5a3b', '#5e3b27', '#f5d6bd'];
   const SHIRTS = ['#e74c3c', '#3498db', '#f1c40f', '#2ecc71', '#9b59b6', '#ecf0f1', '#e67e22', '#1abc9c', '#34495e', '#fd79a8'];
@@ -330,7 +360,7 @@ window.startTraffic = function startTraffic({ viewer, data: T, occluded, canvas,
   function crossingGap(me, p) {
     let gap = Infinity;
     for (const c of crossings) {
-      if (!c.active) continue;
+      if (!c.active || c.foot) continue;
       const rx = c.x - p.x, ry = c.y - p.y;
       const lon = rx * p.hx + ry * p.hy;
       if (lon <= 0 || lon > 70) continue;
@@ -412,11 +442,13 @@ window.startTraffic = function startTraffic({ viewer, data: T, occluded, canvas,
       const end = t.dir === 1 ? t.path.len : 0;
       let target = 16;
       if (t.station != null && !t.served) {
-        const d = (t.station - t.s) * t.dir;
+        // stop with the middle of the train at the platform centre: both directions then line up end to end
+        const stop = t.station + t.dir * ION_LEN / 2;
+        const d = (stop - t.s) * t.dir;
         if (d < 0) t.served = true;
         else {
           target = Math.min(target, Math.sqrt(2 * 1.1 * d) + 0.2);
-          if (d < 0.5) { t.s = t.station; t.v = 0; t.dwell = rand(18, 28); continue; }
+          if (d < 0.5) { t.s = stop; t.v = 0; t.dwell = rand(18, 28); continue; }
         }
       }
       t.v = approach(t.v, target, dt);
@@ -426,6 +458,7 @@ window.startTraffic = function startTraffic({ viewer, data: T, occluded, canvas,
 
     for (const g of games) stepGame(g, dt);
     stepGeese(dt);
+    stepWalkers(dt);
   }
 
   // ---------- drawing primitives ----------
@@ -675,6 +708,13 @@ window.startTraffic = function startTraffic({ viewer, data: T, occluded, canvas,
     const { x, y, rx, ry, w, span, oneway } = c, nx = -ry, ny = rx;
     const P = (a, b) => toScreen(x + rx * a + nx * b, y + ry * a + ny * b, 0.05);
     const rect = (a0, a1, b0, b1, color) => { poly([P(a0, b0), P(a1, b0), P(a1, b1), P(a0, b1)]); ctx.fillStyle = color; ctx.fill(); };
+    if (c.foot) { // concrete walkway over the rails, white edge lines, yellow tactile strips where you wait
+      rect(-span / 2, span / 2, -w / 2, w / 2, 'rgba(200,196,186,.9)');
+      rect(-span / 2, span / 2, -w / 2, -w / 2 + 0.15, 'rgba(255,255,255,.95)');
+      rect(-span / 2, span / 2, w / 2 - 0.15, w / 2, 'rgba(255,255,255,.95)');
+      for (const s of [1, -1]) rect(s * (span / 2 + 0.2), s * (span / 2 + 0.9), -w / 2, w / 2, '#f2c418');
+      return;
+    }
     rect(-span / 2, span / 2, -w / 2, w / 2, 'rgba(62,60,58,.55)'); // rubber crossing panel
     const d = span / 2 + 2.6;
     // stop bars on the approach lanes (right-hand traffic)
@@ -807,7 +847,14 @@ window.startTraffic = function startTraffic({ viewer, data: T, occluded, canvas,
   // ---------- people and geese ----------
   function drawPerson(p, g, small) {
     const [x, y] = fieldXY(g, p.a, p.b);
-    const hx = g.f.ux * p.ha + g.vx * p.hb, hy = g.f.uy * p.ha + g.vy * p.hb;
+    drawFigure(p, x, y, g.f.ux * p.ha + g.vx * p.hb, g.f.uy * p.ha + g.vy * p.hb, small);
+  }
+  function drawWalker(w, small) {
+    if (w.rest > 0) return;
+    const [x, y] = walkerXY(w);
+    drawFigure(w, x, y, w.c.rx * w.dir, w.c.ry * w.dir, small);
+  }
+  function drawFigure(p, x, y, hx, hy, small) {
     if (small) { const s = toScreen(x, y, 1.1); ctx.fillStyle = p.shirt; ctx.fillRect(s[0] - 1, s[1] - 1.5, 2, 3); return; }
     const bob = p.v > 0.5 ? Math.abs(Math.sin(p.phase)) * 0.06 : 0;
     const sw = p.v > 0.5 ? Math.sin(p.phase) * Math.min(0.28, p.v * 0.06) : 0;
@@ -966,6 +1013,7 @@ window.startTraffic = function startTraffic({ viewer, data: T, occluded, canvas,
         const [bx, by] = fieldXY(g, g.ball.a, g.ball.b); add(bx, by, () => drawBall(g), null, {});
       }
       for (const g of geese) add(g.x, g.y, (q, s) => drawGoose(g, s), g, {});
+      for (const w of walkers) { const [x, y] = walkerXY(w); add(x, y, (q, s) => drawWalker(w, s), w, {}); }
       for (const gp of goalposts) { const f = gp.f; add(f.x + f.ux * gp.a, f.y + f.uy * gp.a, () => drawGoalpost(gp), null, {}); }
     }
     items.sort((a, b) => (a.wire ? 1 : 0) - (b.wire ? 1 : 0) || a.sy - b.sy);
