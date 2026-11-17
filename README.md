@@ -60,6 +60,9 @@ The viewer animates cars, GRT/GO buses, ION trains, students on the fields by CI
 
 Buses and trains are textured with perspective-corrected photos from Wikimedia Commons in `viewer/sprites/` (sources and licences in `viewer/sprites/CREDITS.md`); a vehicle falls back to its painted livery if an image is missing.
 
+### Walking directions
+Select a building, press **Walk from here**, then pick a destination: the viewer draws the shortest walk on campus paths (dashes outdoors, dots for indoor or covered stretches) with distance and time at 1.3 m/s, and an *Indoors where possible* toggle that favours UW's tunnels, bridges and corridors. Routes share as `#route/DC/SLC` (`/indoors` appended for the indoor preference). `npm run walk` builds `out/walk.json` (pedestrian graph + building entrances from OSM, ~160 KB) from `data/osm_raw.json`, `data/scene.json` and `out/meta.json`; without it the feature hides.
+
 ### Night on campus
 The moon button (or `N`) cross-fades to `out/night.png`, a pre-lit copy of the painted map baked by `npm run night` (pure Node, ~25 s):
 - the paint is graded to moonlight (darker, cooler, a little desaturated, violet shadows);

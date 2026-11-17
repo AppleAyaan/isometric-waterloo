@@ -578,7 +578,8 @@
     }
     tickClock();
     // every 15 s live; every frame-ish while time-lapsing
-    (function clockLoop() { setTimeout(() => { tickClock(); clockLoop(); }, simClock.live ? 15000 : 250); })();
+    let lastTick = performance.now();
+    setInterval(() => { if (!simClock.live || performance.now() - lastTick > 15000) { lastTick = performance.now(); tickClock(); } }, 250);
 
     // compass: which way north points on screen (from the map's own projection)
     if (life?.projection) {
@@ -719,7 +720,7 @@
     }
     function flyTo(b, pad = 250) {
       const r = group(b).map(center).reduce((a, c) => ({ x0: Math.min(a.x0, c.x0), x1: Math.max(a.x1, c.x1), y0: Math.min(a.y0, c.y0), y1: Math.max(a.y1, c.y1) }));
-      viewer.viewport.fitBounds(viewer.viewport.imageToViewportRectangle(r.x0 - pad, r.y0 - pad, r.x1 - r.x0 + 2 * pad, r.y1 - r.y0 + 2 * pad), reduceMotion);
+      viewer.viewport.fitBounds(viewer.world.getItemAt(0).imageToViewportRectangle(r.x0 - pad, r.y0 - pad, r.x1 - r.x0 + 2 * pad, r.y1 - r.y0 + 2 * pad), reduceMotion);
     }
     async function share(b) {
       const url = location.href, title = `${b.name || prettyKind(b.kind)} · Isometric UWaterloo`;
@@ -862,8 +863,9 @@
       // project scene metres to image px (h metres up) and back (on the ground)
       sceneToImage: (x, y, h = 0) => { const [PX, PY] = life.projection; return [PX[0] * x + PX[1] * y + PX[2] * h + PX[3], PY[0] * x + PY[1] * y + PY[2] * h + PY[3]]; },
       imageToScene: (ix, iy) => { const [PX, PY] = life.projection, u = ix - PX[3], v = iy - PY[3], det = PX[0] * PY[1] - PX[1] * PY[0]; return [(u * PY[1] - v * PX[1]) / det, (PX[0] * v - PY[0] * u) / det]; },
-      imageToScreen: (ix, iy) => { const p = viewer.world.getItemAt(0).imageToViewerElementCoordinates(new OpenSeadragon.Point(ix, iy)); return [p.x, p.y]; },
-      screenToImage: (sx, sy) => { const p = viewer.world.getItemAt(0).viewerElementToImageCoordinates(new OpenSeadragon.Point(sx, sy)); return [p.x, p.y]; },
+      // (the day map is item 0; before it opens there is nothing to project against)
+      imageToScreen: (ix, iy) => { const it = viewer.world.getItemAt(0); if (!it) return [0, 0]; const p = it.imageToViewerElementCoordinates(new OpenSeadragon.Point(ix, iy)); return [p.x, p.y]; },
+      screenToImage: (sx, sy) => { const it = viewer.world.getItemAt(0); if (!it) return [0, 0]; const p = it.viewerElementToImageCoordinates(new OpenSeadragon.Point(sx, sy)); return [p.x, p.y]; },
       // add a round button to the right-hand control bar (above the compass divider)
       addControl: (btn) => { const c = $('controls'), hrs = c.querySelectorAll('hr'); c.insertBefore(btn, hrs[hrs.length - 1]); return btn; },
       // map clicks: a handler returning true swallows the click (no building select)
