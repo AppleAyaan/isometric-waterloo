@@ -558,18 +558,48 @@
       if (nightLayer && nightLayer !== 'loading') return fadeNight(level);
       if (level <= 0.001 || nightLayer) return;
       // fetched on first use only, so daytime visitors never download it
-      nightLayer = 'loading';
-      const slow = setTimeout(() => toast('Turning the lights on…'), 400);
+      loadNight();
+    }
+    // Which night map: the plain one, or a season's (seasons.js picks 'winter' while the snow is showing).
+    // Swapping while it's dark loads the new one over the old and drops the old once the new one is in.
+    let nightVariant = null, nightSwap = false;
+    function loadNight(old) {
+      // (a swap keeps the old map as the live layer until the new one is in, so fades and the backdrop carry on)
+      // (a first load waits a tick, so feature modules starting up in the same task can pick the variant first)
+      if (old) nightSwap = true; else { nightLayer = 'loading'; if (!loadNight.ticked) return setTimeout(() => { loadNight.ticked = true; loadNight(); }); }
+      const variant = nightVariant, name = variant ? 'night-' + variant : 'night';
+      const slow = old ? 0 : setTimeout(() => toast('Turning the lights on…'), 400);
       viewer.addTiledImage({
-        tileSource: TILED ? OUT + 'night.dzi' : { type: 'image', url: OUT + 'night.png' },
+        tileSource: TILED ? OUT + name + '.dzi' : { type: 'image', url: OUT + name + '.png' },
         x: 0, y: 0, width: 1, opacity: 0,
         success: (e) => {
-          nightLayer = e.item; clearTimeout(slow);
-          const go = () => fadeNight(nightLevel);
+          e.item.variant = variant; clearTimeout(slow);
+          if (!old) nightLayer = e.item;
+          let done = false;
+          const go = () => {
+            if (done) return;
+            done = true;
+            if (old) { cancelAnimationFrame(nightFade); e.item.setOpacity(old.getOpacity()); viewer.world.removeItem(old); nightLayer = e.item; nightSwap = false; }
+            fadeNight(nightLevel);
+            if (variant !== nightVariant) setNightVariant(nightVariant);
+          };
           if (e.item.getFullyLoaded?.()) go(); else { e.item.addOnceHandler('fully-loaded-change', go); setTimeout(go, 2500); }
         },
-        error: () => { clearTimeout(slow); nightLayer = null; toast("Couldn't load the night map"); setNight(false); syncBg(); },
+        error: () => {
+          clearTimeout(slow);
+          if (old) { nightSwap = false; return; }
+          nightLayer = null;
+          toast("Couldn't load the night map"); setNight(false); syncBg();
+        },
       });
+    }
+    function setNightVariant(v) {
+      nightVariant = (v && nightInfo?.variants?.includes(v)) ? v : null;
+      if (!nightLayer || nightLayer === 'loading' || nightSwap || nightLayer.variant === nightVariant) return;
+      if (nightLevel > 0.001) return loadNight(nightLayer);
+      // not showing: the right one loads when it's next dark
+      cancelAnimationFrame(nightFade); viewer.world.removeItem(nightLayer); nightLayer = null;
+      viewer.world.getItemAt(0)?.setOpacity(1);
     }
 
     // ---- live Waterloo time: night mode follows the sun on campus unless you flip it yourself ----
@@ -977,6 +1007,8 @@
       },
       // recolour the map tiles (fn(pixels, w, h, { night, x0, y0, s }) or null for the original imagery)
       setTileFilter: (fn) => { tileFilter = fn || null; filterGen++; viewer.forceRedraw(); },
+      // use a season's baked night map when there is one (null for the plain night map)
+      setNightVariant,
       // add a round button to the right-hand control bar (above the compass divider)
       addControl: (btn) => { const c = $('controls'), hrs = c.querySelectorAll('hr'); c.insertBefore(btn, hrs[hrs.length - 1]); return btn; },
       // map clicks: a handler returning true swallows the click (no building select)
