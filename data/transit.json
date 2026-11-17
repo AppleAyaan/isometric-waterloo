@@ -1,0 +1,116 @@
+{
+  "_note": "Simulated transit for the viewer. Each bus route is matched to the OSM stops whose route_ref (or network) matches, then routed through them. Names and colours are display-only. Liveries are approximations drawn in code (no logos/artwork).",
+  "routes": [
+    {
+      "id": "9",
+      "name": "Lakeshore",
+      "agency": "GRT",
+      "color": "#1f6fb5",
+      "match": {
+        "ref": "9"
+      },
+      "livery": "GRT"
+    },
+    {
+      "id": "12",
+      "name": "Conestoga - Fairview",
+      "agency": "GRT",
+      "color": "#1f6fb5",
+      "match": {
+        "ref": "12"
+      },
+      "livery": "GRT"
+    },
+    {
+      "id": "13",
+      "name": "Laurelwood",
+      "agency": "GRT",
+      "color": "#1f6fb5",
+      "match": {
+        "ref": "13"
+      },
+      "livery": "GRT"
+    },
+    {
+      "id": "29",
+      "name": "Keats Way",
+      "agency": "GRT",
+      "color": "#1f6fb5",
+      "match": {
+        "ref": "29"
+      },
+      "livery": "GRT"
+    },
+    {
+      "id": "31",
+      "name": "Columbia",
+      "agency": "GRT",
+      "color": "#1f6fb5",
+      "match": {
+        "ref": "31"
+      },
+      "livery": "GRT"
+    },
+    {
+      "id": "201",
+      "name": "iXpress Fischer-Hallman",
+      "agency": "GRT",
+      "color": "#d33a2c",
+      "match": {
+        "ref": "201"
+      },
+      "livery": "iXpress"
+    },
+    {
+      "id": "25",
+      "name": "Waterloo - Mississauga",
+      "agency": "GO",
+      "color": "#2f8a3c",
+      "match": {
+        "network": "GO Transit"
+      },
+      "doubleDecker": true,
+      "livery": "GO"
+    }
+  ],
+  "ion": {
+    "name": "ION",
+    "color": "#0b78c2",
+    "stationName": "University of Waterloo",
+    "northNext": "Research & Technology",
+    "southNext": "Laurier-Waterloo Park",
+    "northTerminus": "Conestoga",
+    "southTerminus": "Fairway"
+  },
+  "liveries": {
+    "GRT": {
+      "body": "#f4f4f1",
+      "skirt": "#163f7a",
+      "stripe": "#d52b1e",
+      "roof": "#e9e9e4",
+      "glass": "#1c232b"
+    },
+    "iXpress": {
+      "body": "#f4f4f1",
+      "skirt": "#d52b1e",
+      "stripe": "#163f7a",
+      "roof": "#e9e9e4",
+      "glass": "#1c232b"
+    },
+    "GO": {
+      "body": "#f2f3ef",
+      "skirt": "#2e7d32",
+      "stripe": "#2e7d32",
+      "roof": "#e7e9e4",
+      "glass": "#1c232b"
+    },
+    "ION": {
+      "body": "#f3f5f6",
+      "skirt": "#0b78c2",
+      "stripe": "#5cc6e8",
+      "roof": "#dfe3e6",
+      "glass": "#161c22",
+      "nose": "#2a3138"
+    }
+  }
+}

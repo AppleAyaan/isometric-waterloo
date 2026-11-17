@@ -12,7 +12,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SLAB = 14; // must match render/render.js
 
 // ---------- projection (mirrors makeCamera/computeLayout in render/render.js) ----------
-function makeProjector(scene, meta) {
+export function makeProjector(scene, meta) {
   const e = (meta.elevation * Math.PI) / 180, a = (meta.azimuth * Math.PI) / 180;
   const dir = [Math.sin(a) * Math.cos(e), Math.sin(e), Math.cos(a) * Math.cos(e)];
   const norm = (v) => { const l = Math.hypot(...v); return v.map((c) => c / l); };

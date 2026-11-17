@@ -40,6 +40,9 @@ Google's Map Tiles API terms restrict storing and redistributing its imagery. Ch
 ### Changing the area
 `BBOX="south,west,north,east" npm run fetch && npm run scene && npm run export`
 
+### Map life (simulated)
+The viewer animates cars, GRT/GO buses, ION trains, students on the fields by CIF and Canada geese, and labels the named parking lots. None of it is live: cars wander the OSM road graph, buses are routed through the real OSM stops whose `route_ref` lists them, the ION shuttles along the line (gates come down at the level crossings) and stops at the UW station. `npm run export` writes `out/traffic.json`; after changing `data/transit.json` (route names, colours, liveries) or the scene, refresh it alone with `npm run traffic`.
+
 ### Fixing building heights
 OSM heights and codes are sometimes missing or wrong. Add overrides to `data/overrides.json`, keyed by building code or OSM id, then run `npm run scene && npm run outlines` (no re-render needed unless heights changed):
 ```json

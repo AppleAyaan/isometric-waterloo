@@ -10,7 +10,7 @@ fs.mkdirSync(path.join(SITE, 'out'), { recursive: true });
 const html = fs.readFileSync(path.join(ROOT, 'viewer/index.html'), 'utf8').replace("new URL('../out/', location.href)", "new URL('./out/', location.href)");
 fs.writeFileSync(path.join(SITE, 'index.html'), html);
 for (const f of fs.readdirSync(path.join(ROOT, 'viewer'))) if (f !== 'index.html' && fs.statSync(path.join(ROOT, 'viewer', f)).isFile()) fs.copyFileSync(path.join(ROOT, 'viewer', f), path.join(SITE, f));
-for (const f of ['map.png', 'photo.png', 'render.png', 'idmap.png', 'meta.json']) {
+for (const f of ['map.png', 'photo.png', 'render.png', 'idmap.png', 'meta.json', 'traffic.json']) {
   const src = path.join(ROOT, 'out', f);
   if (fs.existsSync(src)) fs.copyFileSync(src, path.join(SITE, 'out', f));
 }
