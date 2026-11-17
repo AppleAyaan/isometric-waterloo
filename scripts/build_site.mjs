@@ -25,9 +25,9 @@ for (const f of fs.readdirSync(path.join(ROOT, 'viewer'))) {
 }
 
 // data the viewer reads
-for (const f of ['meta.json', 'traffic.json', 'idmap.png']) {
+for (const f of ['meta.json', 'traffic.json', 'walk.json', 'idmap.png']) {
   const src = path.join(OUT, f);
-  if (!fs.existsSync(src)) { if (f === 'traffic.json') continue; throw new Error(`missing out/${f}: run npm run export first`); }
+  if (!fs.existsSync(src)) { if (f === 'traffic.json' || f === 'walk.json') continue; /* optional: the viewer hides those features */ throw new Error(`missing out/${f}: run npm run export first`); }
   fs.copyFileSync(src, path.join(SITE, 'out', f));
 }
 
