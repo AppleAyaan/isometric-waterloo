@@ -2,19 +2,38 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>Isometric UWaterloo</title>
   <meta name="description" content="A giant isometric map of the University of Waterloo. Every building is real: point at one to see what it is.">
+  <meta name="theme-color" content="#f3eee4">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="manifest" href="site.webmanifest">
+  <link rel="canonical" href="%SITE_URL%">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Isometric UWaterloo">
+  <meta property="og:title" content="Isometric UWaterloo">
+  <meta property="og:description" content="A giant isometric map of the University of Waterloo. Every building is real: point at one to see what it is.">
+  <meta property="og:url" content="%SITE_URL%">
+  <meta property="og:image" content="%SITE_URL%og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Isometric illustration of the University of Waterloo campus">
+  <meta name="twitter:card" content="summary_large_image">
   <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Silkscreen&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     :root {
       --bg: #f3eee4; --ink: #1f1c17; --muted: #6d6658; --gold: #fed34c; --gold-deep: #c99a06;
       --glass: rgba(255, 252, 245, .42); --glass-strong: rgba(255, 252, 245, .62); --edge: rgba(255, 255, 255, .7);
       --shadow: 0 10px 34px rgba(70, 55, 25, .18), 0 1px 3px rgba(70, 55, 25, .12);
+      --safe-b: env(safe-area-inset-bottom, 0px); --safe-t: env(safe-area-inset-top, 0px);
     }
     * { box-sizing: border-box; }
-    html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font: 14px/1.4 Inter, system-ui, sans-serif; overflow: hidden; }
+    html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font: 14px/1.4 Inter, system-ui, sans-serif; overflow: hidden; -webkit-tap-highlight-color: transparent; }
+    button { font: inherit; color: inherit; }
+    :focus-visible { outline: 2px solid var(--gold-deep); outline-offset: 2px; }
     #map { position: fixed !important; top: 0; left: 0; width: 100vw; height: 100vh; height: 100dvh; }
     #hl, #veh { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; } /* canvases do not stretch with inset alone */
     #vcards { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
@@ -44,7 +63,8 @@
       border: 1px solid var(--edge); border-radius: 18px; box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 255, 255, .9), inset 0 -1px 0 rgba(120, 100, 60, .08);
       -webkit-backdrop-filter: blur(22px) saturate(180%); backdrop-filter: blur(22px) saturate(180%);
     }
-    #title { top: 16px; left: 16px; padding: 14px; display: flex; flex-direction: column; gap: 12px; width: 320px; max-width: calc(100vw - 32px); }
+    @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .chip { background: rgba(255, 252, 245, .94); } }
+    #title { top: calc(16px + var(--safe-t)); left: 16px; padding: 14px; display: flex; flex-direction: column; gap: 10px; width: 320px; max-width: calc(100vw - 32px); z-index: 3; }
     .brand { display: flex; align-items: center; gap: 12px; }
     .brand img { width: 44px; height: 44px; object-fit: contain; flex: none; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .15)); }
     .brand h1 { margin: 0; font: 17px/1.15 Silkscreen, monospace; letter-spacing: .3px; color: var(--ink); }
@@ -53,40 +73,129 @@
     .brand a:hover { color: var(--ink); }
     .brand a b { font-weight: 600; color: var(--ink); border-bottom: 1.5px solid var(--gold); }
     .searchbox { position: relative; }
-    .searchbox svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; color: var(--muted); pointer-events: none; }
+    .searchbox > svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; color: var(--muted); pointer-events: none; }
+    .searchbox kbd { position: absolute; right: 9px; top: 50%; transform: translateY(-50%); pointer-events: none; }
+    .searchbox:focus-within kbd { display: none; }
+    kbd { display: inline-block; min-width: 20px; padding: 0 5px; border-radius: 6px; border: 1px solid rgba(120, 100, 60, .2); border-bottom-width: 2px; background: rgba(255, 255, 255, .6); color: var(--muted); font: 11px/17px Inter, system-ui, sans-serif; text-align: center; }
     #search {
-      width: 100%; padding: 9px 12px 9px 33px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, .8);
+      width: 100%; padding: 9px 34px 9px 33px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, .8);
       background: rgba(255, 255, 255, .55); color: var(--ink); font: inherit; outline: none;
-      box-shadow: inset 0 1px 2px rgba(70, 55, 25, .08);
+      box-shadow: inset 0 1px 2px rgba(70, 55, 25, .08); -webkit-appearance: none; appearance: none;
     }
+    #search::-webkit-search-cancel-button { display: none; }
     #search::placeholder { color: #8b8474; }
     #search:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(254, 211, 76, .35); }
-    #results { list-style: none; margin: -4px 0 0; padding: 0; max-height: 40vh; overflow: auto; }
+    #results { list-style: none; margin: -2px 0 0; padding: 0; max-height: 40vh; overflow: auto; }
     #results:empty { display: none; }
-    #results li { padding: 6px 8px; border-radius: 9px; cursor: pointer; }
+    #results li { padding: 6px 8px; border-radius: 9px; cursor: pointer; display: flex; align-items: baseline; gap: 0; }
+    #results li .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #results li small { color: var(--muted); font-size: 11.5px; margin-left: 8px; flex: none; }
     #results li:hover, #results li.active { background: rgba(255, 255, 255, .6); }
+    #results li.note { cursor: default; color: var(--muted); font-size: 13px; }
+    #results li.note:hover { background: none; }
+    #results li.hd { cursor: default; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .6px; padding-bottom: 2px; }
+    #results li.hd:hover { background: none; }
+    .actions { display: flex; gap: 8px; }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 7px 11px; border-radius: 11px; cursor: pointer;
+      border: 1px solid rgba(255, 255, 255, .8); background: rgba(255, 255, 255, .45); font-size: 13px; font-weight: 500; text-decoration: none; color: var(--ink);
+      transition: background .15s, transform .1s;
+    }
+    .btn:hover { background: rgba(255, 255, 255, .8); }
+    .btn:active { transform: scale(.97); }
+    .btn svg { width: 15px; height: 15px; flex: none; color: var(--gold-deep); }
+    .btn.on { background: var(--gold); border-color: var(--gold); }
+    .btn.on svg { color: var(--ink); }
+    .actions .btn { flex: 1; }
     .code { display: inline-block; padding: 0 6px; margin-right: 7px; border-radius: 6px; background: var(--gold); color: #1f1c17; font: 11px/18px Silkscreen, monospace; vertical-align: 1px; }
     #tip { position: fixed; pointer-events: none; padding: 6px 10px; font-size: 13px; display: none; white-space: nowrap; z-index: 5; border-radius: 12px; }
-    #card { right: 16px; bottom: 40px; width: 300px; max-width: calc(100vw - 32px); padding: 16px 18px; display: none; }
-    #card h2 { margin: 6px 0 2px; font-size: 16px; }
+    #card { right: 16px; bottom: calc(40px + var(--safe-b)); width: 310px; max-width: calc(100vw - 32px); padding: 16px 18px; display: none; z-index: 3; }
+    #card.show { display: block; animation: rise .22s ease-out; }
+    @keyframes rise { from { opacity: 0; transform: translateY(8px); } }
+    #card h2 { margin: 6px 28px 2px 0; font-size: 16px; line-height: 1.25; }
     #card dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; margin: 10px 0 0; font-size: 13px; }
     #card dt { color: var(--muted); }
     #card dd { margin: 0; }
     #card a { color: var(--ink); text-decoration-color: var(--gold); text-decoration-thickness: 2px; }
-    #card .x { position: absolute; top: 8px; right: 12px; background: none; border: 0; color: var(--muted); font-size: 18px; cursor: pointer; }
-    #credit { right: 16px; bottom: 10px; padding: 3px 10px; font-size: 11px; color: var(--muted); border-radius: 8px; }
+    #card .x { position: absolute; top: 8px; right: 10px; width: 28px; height: 28px; border-radius: 9px; background: none; border: 0; color: var(--muted); font-size: 20px; line-height: 1; cursor: pointer; }
+    #card .x:hover { background: rgba(255, 255, 255, .6); color: var(--ink); }
+    #card .actions { margin-top: 14px; }
+    #card .actions .btn { padding: 6px 8px; font-size: 12.5px; }
+    #controls { right: 16px; top: calc(16px + var(--safe-t)); padding: 5px; border-radius: 15px; display: flex; flex-direction: column; gap: 2px; z-index: 2; }
+    #controls button { width: 36px; height: 36px; border: 0; border-radius: 10px; background: none; cursor: pointer; display: grid; place-items: center; color: var(--ink); transition: background .15s; }
+    #controls button:hover { background: rgba(255, 255, 255, .7); }
+    #controls button.on { color: var(--gold-deep); }
+    #controls button svg { width: 18px; height: 18px; }
+    #controls hr { width: 22px; margin: 3px auto; border: 0; border-top: 1px solid rgba(120, 100, 60, .18); }
+    #compass { width: 36px; height: 36px; display: grid; place-items: center; }
+    #compass svg { width: 26px; height: 26px; transition: transform .3s; }
+    #credit { right: 16px; bottom: calc(10px + var(--safe-b)); padding: 3px 10px; font-size: 11px; color: var(--muted); border-radius: 8px; }
     #credit a { color: var(--muted); }
-    #feedback { left: 16px; bottom: 10px; padding: 7px 13px; border-radius: 12px; color: var(--ink); font-size: 13px; font-weight: 500; text-decoration: none; display: flex; align-items: center; gap: 7px; }
+    #feedback { left: 16px; bottom: calc(10px + var(--safe-b)); padding: 7px 13px; border-radius: 12px; color: var(--ink); font-size: 13px; font-weight: 500; text-decoration: none; display: flex; align-items: center; gap: 7px; }
     #feedback:hover { background: rgba(255, 255, 255, .7); }
     #feedback svg { width: 15px; height: 15px; color: var(--gold-deep); }
-    @media (max-width: 600px) { #card { left: 16px; right: 16px; width: auto; bottom: 56px; } #credit { left: auto; max-width: calc(100vw - 170px); } #title { width: auto; right: 16px; } }
+    #toast { left: 50%; bottom: calc(64px + var(--safe-b)); transform: translate(-50%, 10px); padding: 8px 14px; border-radius: 12px; font-size: 13px; font-weight: 500; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 10; white-space: nowrap; }
+    #toast.show { opacity: 1; transform: translate(-50%, 0); }
+    /* loading screen */
+    #loader { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; background: var(--bg); transition: opacity .5s; }
+    #loader.done { opacity: 0; pointer-events: none; }
+    #loader .in { display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center; padding: 24px; }
+    #loader .cube { width: 64px; height: 64px; animation: bob 1.4s ease-in-out infinite; }
+    @keyframes bob { 50% { transform: translateY(-8px); } }
+    #loader h1 { margin: 0; font: 20px/1.2 Silkscreen, monospace; }
+    #loader h1 span { color: var(--gold-deep); }
+    #loader p { margin: 0; color: var(--muted); font-size: 13px; min-height: 18px; }
+    #loader .bar { width: 200px; height: 6px; border-radius: 3px; background: rgba(120, 100, 60, .14); overflow: hidden; }
+    #loader .bar i { display: block; height: 100%; width: 5%; background: var(--gold); border-radius: 3px; transition: width .3s; }
+    #loader.err .cube { animation: none; filter: grayscale(1); }
+    #loader .btn { display: none; }
+    #loader.err .btn { display: inline-flex; }
+    #loader.err .bar { display: none; }
+    /* help / about */
+    dialog { border: 0; padding: 0; background: none; max-width: min(520px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); color: var(--ink); }
+    dialog::backdrop { background: rgba(60, 50, 30, .22); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
+    dialog[open] { animation: rise .2s ease-out; }
+    #help .chip { position: relative; padding: 22px 24px; overflow: auto; max-height: calc(100dvh - 48px); background: rgba(255, 252, 245, .9); }
+    #help h2 { margin: 0 0 6px; font: 17px/1.2 Silkscreen, monospace; }
+    #help h3 { margin: 18px 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); }
+    #help p { margin: 6px 0; }
+    #help a { color: var(--ink); text-decoration-color: var(--gold); text-decoration-thickness: 2px; }
+    #help table { border-collapse: collapse; font-size: 13px; }
+    #help td { padding: 3px 14px 3px 0; vertical-align: top; }
+    #help .x { position: absolute; top: 10px; right: 12px; width: 30px; height: 30px; border-radius: 9px; border: 0; background: none; font-size: 22px; color: var(--muted); cursor: pointer; }
+    #help .x:hover { background: rgba(255, 255, 255, .7); color: var(--ink); }
+    #help .stats { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    #help .stats span { padding: 3px 9px; border-radius: 99px; background: rgba(254, 211, 76, .35); font-size: 12px; font-weight: 500; }
+    .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    @media (hover: none) { .searchbox kbd, .keys-only { display: none !important; } }
+    @media (max-width: 600px) {
+      #title { right: 70px; width: auto; padding: 11px; gap: 9px; }
+      .brand img { width: 34px; height: 34px; }
+      .brand h1 { font-size: 15px; }
+      #card { left: 16px; right: 16px; width: auto; bottom: calc(52px + var(--safe-b)); }
+      #feedback { padding: 8px 10px; } #feedback span { display: none; }
+      #credit { left: 64px; font-size: 10px; line-height: 1.35; padding: 4px 9px; }
+      #controls button { width: 34px; height: 34px; }
+    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
   </style>
 </head>
 <body>
-  <div id="map"></div>
-  <canvas id="veh"></canvas>
-  <div id="vcards"></div>
-  <canvas id="hl"></canvas>
+  <div id="loader" role="status" aria-live="polite">
+    <div class="in">
+      <svg class="cube" viewBox="0 0 64 64" aria-hidden="true"><path d="M32 3 59 18v28L32 61 5 46V18z" fill="#1f1c17"/><path d="M32 8 54 20 32 32 10 20z" fill="#fed34c"/><path d="M10 20 32 32v24L10 44z" fill="#c99a06"/><path d="M54 20 32 32v24l22-12z" fill="#e8b923"/></svg>
+      <h1>Isometric <span>UWaterloo</span></h1>
+      <div class="bar"><i></i></div>
+      <p id="loadmsg">Loading the map…</p>
+      <button class="btn" onclick="location.reload()">Try again</button>
+    </div>
+  </div>
+
+  <div id="map" aria-label="Isometric map of the University of Waterloo campus"></div>
+  <canvas id="veh" aria-hidden="true"></canvas>
+  <div id="vcards" aria-hidden="true"></div>
+  <canvas id="hl" aria-hidden="true"></canvas>
+
   <div id="title" class="chip">
     <div class="brand">
       <img src="uwaterloo-logo.png" alt="University of Waterloo" onerror="this.remove()">
@@ -95,48 +204,140 @@
         <a id="author" href="https://www.linkedin.com/in/ayaanfaisal18/" target="_blank" rel="noopener">Built by <b>Ayaan</b> ↗</a>
       </div>
     </div>
-    <div class="searchbox">
+    <div class="searchbox" role="combobox" aria-expanded="false" aria-owns="results" aria-haspopup="listbox">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-      <input id="search" placeholder="Find a building or lot (DC, SLC, Lot C…)" autocomplete="off" aria-label="Find a building">
+      <input id="search" type="search" placeholder="Find a building or lot (DC, SLC, Lot C…)" autocomplete="off" spellcheck="false" aria-label="Find a building" aria-autocomplete="list" aria-controls="results">
+      <kbd>/</kbd>
     </div>
-    <ul id="results"></ul>
+    <ul id="results" role="listbox" aria-label="Search results"></ul>
+    <div class="actions">
+      <button class="btn" id="random" title="Jump to a random building (R)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="8.5" cy="8.5" r="1.2" fill="currentColor"/><circle cx="15.5" cy="15.5" r="1.2" fill="currentColor"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/></svg>Surprise me</button>
+      <button class="btn" id="tour" title="Fly past the landmarks (T)" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11 21 3l-8 18-2-8z"/></svg><span>Campus tour</span></button>
+    </div>
   </div>
+
+  <div id="controls" class="chip" role="toolbar" aria-label="Map controls">
+    <button id="zin" title="Zoom in (+)" aria-label="Zoom in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+    <button id="zout" title="Zoom out (−)" aria-label="Zoom out"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h14"/></svg></button>
+    <button id="home" title="Show all of campus (0)" aria-label="Show all of campus"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 21 8v8l-9 5-9-5V8z"/><path d="m3 8 9 5 9-5M12 13v8"/></svg></button>
+    <hr>
+    <button id="life" title="Pause / play traffic and people (L)" aria-label="Pause traffic and people" aria-pressed="true" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="9" width="16" height="7" rx="2"/><path d="M6 9l2-4h8l2 4"/><circle cx="8" cy="17.5" r="1.6" fill="currentColor"/><circle cx="16" cy="17.5" r="1.6" fill="currentColor"/></svg></button>
+    <button id="fs" title="Full screen (F)" aria-label="Full screen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+    <button id="helpbtn" title="About and shortcuts (?)" aria-label="About this map"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.1-2.4 3.6"/><circle cx="12" cy="17" r=".9" fill="currentColor"/></svg></button>
+    <hr>
+    <div id="compass" title="North"><svg viewBox="0 0 24 24"><path d="M12 2.5 15.5 12h-7z" fill="#d6453d"/><path d="M12 21.5 8.5 12h7z" fill="#8b8474"/><text x="12" y="13.6" font-size="5" text-anchor="middle" fill="#fff" font-family="Inter, sans-serif" font-weight="700">N</text></svg></div>
+  </div>
+
   <div id="tip" class="chip"></div>
-  <div id="card" class="chip"><button class="x" aria-label="Close">×</button><div id="cardBody"></div></div>
-  <a id="feedback" class="chip" href="mailto:a34faisa@uwaterloo.ca?subject=Isometric%20UWaterloo%20feedback"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>Give feedback</a>
+  <div id="card" class="chip" role="region" aria-live="polite" aria-label="Selected building"><button class="x" aria-label="Close" title="Close (Esc)">×</button><div id="cardBody"></div></div>
+  <div id="toast" class="chip" role="status" aria-live="polite"></div>
+  <a id="feedback" class="chip" aria-label="Give feedback" href="mailto:a34faisa@uwaterloo.ca?subject=Isometric%20UWaterloo%20feedback"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg><span>Give feedback</span></a>
   <div id="credit" class="chip">Map data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a> · <a href="sprites/CREDITS.md" target="_blank" rel="noopener">Vehicle photos</a></div>
+
+  <dialog id="help" aria-labelledby="helptitle">
+    <div class="chip">
+      <button class="x" aria-label="Close" autofocus>×</button>
+      <h2 id="helptitle">Isometric UWaterloo</h2>
+      <p>A giant hand-built isometric map of the University of Waterloo main campus. Every building comes from OpenStreetMap, so hover or tap one to see what it is.</p>
+      <div class="stats" id="stats"></div>
+      <h3>Getting around</h3>
+      <p>Drag to pan, scroll or pinch to zoom. Search by building code (<b>DC</b>, <b>MC</b>, <b>E5</b>) or name, then share the link: it opens straight to that building.</p>
+      <h3 class="keys-only">Keyboard</h3>
+      <table class="keys-only">
+        <tr><td><kbd>/</kbd></td><td>Search</td></tr>
+        <tr><td><kbd>+</kbd> <kbd>−</kbd> <kbd>0</kbd></td><td>Zoom in, out, whole campus</td></tr>
+        <tr><td><kbd>←</kbd> <kbd>↑</kbd> <kbd>→</kbd> <kbd>↓</kbd></td><td>Pan</td></tr>
+        <tr><td><kbd>R</kbd> <kbd>T</kbd></td><td>Random building, campus tour</td></tr>
+        <tr><td><kbd>L</kbd> <kbd>F</kbd></td><td>Pause traffic, full screen</td></tr>
+        <tr><td><kbd>Esc</kbd></td><td>Close</td></tr>
+      </table>
+      <h3>What's moving?</h3>
+      <p>Cars, GRT and GO buses, the ION, students on the fields and the geese are a simulation, not live data. Buses follow their real routes and stop at real stops; the ION drops the crossing gates as it passes.</p>
+      <h3>Credits</h3>
+      <p>Map data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a> (ODbL). <span id="paintcredit"></span>Vehicle photos from Wikimedia Commons (<a href="sprites/CREDITS.md" target="_blank" rel="noopener">licences</a>). Inspired by Andy Coenen's <a href="https://cannoneyed.com/projects/isometric-nyc" target="_blank" rel="noopener">isometric.nyc</a>. Not affiliated with the University of Waterloo.</p>
+    </div>
+  </dialog>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.1/openseadragon.min.js"></script>
   <script src="traffic.js"></script>
   <script>
   (async () => {
     const OUT = new URL('../out/', location.href).href;
+    const $ = (id) => document.getElementById(id);
+    const loader = $('loader'), loadmsg = $('loadmsg'), bar = loader.querySelector('.bar i');
+    const progress = (pct, msg) => { bar.style.width = pct + '%'; if (msg) loadmsg.textContent = msg; };
+    const fail = (msg) => { loader.classList.add('err'); loadmsg.textContent = msg; };
+    const store = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} } };
+    const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (!window.OpenSeadragon) return fail("Couldn't load the map viewer. Check your connection and try again.");
+    const getJSON = (u) => fetch(u).then((r) => (r.ok ? r.json() : Promise.reject(new Error(r.status + ' ' + u))));
+    let meta, life;
+    try {
+      progress(15, 'Loading buildings…');
+      [meta, life] = await Promise.all([getJSON(OUT + 'meta.json'), getJSON(OUT + 'traffic.json').catch(() => null)]);
+    } catch (e) { console.error(e); return fail("Couldn't load the map data. Check your connection and try again."); }
+
+    // The deployed site streams a Deep Zoom pyramid (npm run site flips TILED); locally we show the PNG
+    // directly: the AI-painted map, falling back to the OSM whitebox if it hasn't been painted yet.
+    const TILED = false;
     const exists = async (u) => { try { return (await fetch(u, { method: 'HEAD' })).ok; } catch { return false; } };
-    const meta = await (await fetch(OUT + 'meta.json')).json();
-    const life = await fetch(OUT + 'traffic.json').then((r) => (r.ok ? r.json() : null)).catch(() => null);
-    // One layer: the AI-painted map, falling back to the OSM whitebox if it hasn't been painted yet.
-    const layer = (await exists(OUT + 'map.png'))
-      ? { file: 'map.png', credit: 'Painted from imagery © Google' }
-      : { file: 'render.png' };
+    let layer;
+    if (TILED) {
+      const info = await getJSON(OUT + 'layer.json').catch(() => ({ painted: true }));
+      layer = { source: OUT + 'map.dzi', painted: info.painted };
+      // The tiles are opaque. Left as "maybe transparent" (any .png), OSD clears each tile's rect before
+      // drawing it, which leaves 1px background seams between tiles when smoothing is off.
+      OpenSeadragon.DziTileSource.prototype.hasTransparency = () => false;
+    } else {
+      const painted = await exists(OUT + 'map.png');
+      layer = { source: { type: 'image', url: OUT + (painted ? 'map.png' : 'render.png') }, painted };
+    }
+    const paintCredit = layer.painted ? 'Painted from imagery © Google' : '';
+    if (paintCredit) { $('credit').insertAdjacentHTML('beforeend', ` · ${paintCredit}`); $('paintcredit').textContent = paintCredit + '. '; }
+    progress(35, 'Drawing campus…');
 
     const viewer = OpenSeadragon({
-      element: document.getElementById('map'),
-      tileSources: { type: 'image', url: OUT + layer.file },
+      element: $('map'),
+      tileSources: layer.source,
       showNavigationControl: false, imageSmoothingEnabled: false,
       maxZoomPixelRatio: 2, visibilityRatio: 0.6, constrainDuringPan: true,
-      gestureSettingsMouse: { clickToZoom: false },
-      animationTime: 0.6, springStiffness: 9,
+      gestureSettingsMouse: { clickToZoom: false, dblClickToZoom: true },
+      gestureSettingsTouch: { pinchRotate: false },
+      animationTime: reduceMotion ? 0.05 : 0.6, springStiffness: 9,
+      immediateRender: false, blendTime: 0.1, preserveImageSizeOnResize: true,
     });
     window.viewer = viewer;
-    viewer.addHandler('open-failed', (e) => console.error('open failed', e.message));
     document.body.style.background = meta.background;
-    if (layer.credit) document.getElementById('credit').innerHTML += ` · ${layer.credit}`;
+    // the loading screen lifts once the first view's tiles are in (or after 6 s) and the app below is wired up
+    let tilesReady = false, appReady = false;
+    const finishLoading = () => {
+      if (!tilesReady || !appReady || loader.classList.contains('done')) return;
+      progress(100); loader.classList.add('done'); setTimeout(() => loader.remove(), 600); onReady();
+    };
+    const tilesDone = () => { tilesReady = true; finishLoading(); };
+    viewer.addHandler('open-failed', (e) => { console.error('open failed', e.message); fail("Couldn't load the map image. Try again in a moment."); });
+    viewer.addHandler('open', () => {
+      progress(70, 'Almost there…');
+      const item = viewer.world.getItemAt(0);
+      // on a tall phone screen the whole diamond is a sliver: start closer in, on the middle of campus
+      if (innerHeight > innerWidth * 1.2) {
+        const vp = viewer.viewport, z = vp.getHomeZoom() * Math.min(2.6, innerHeight / innerWidth * 1.15);
+        vp.zoomTo(z, vp.imageToViewportCoordinates(meta.width * 0.52, meta.height * 0.42), true);
+        vp.panTo(vp.imageToViewportCoordinates(meta.width * 0.52, meta.height * 0.42), true);
+      }
+      if (item.getFullyLoaded?.()) tilesDone();
+      item.addHandler('fully-loaded-change', (e) => { if (e.fullyLoaded) tilesDone(); });
+      setTimeout(tilesDone, 6000); // never hold the page hostage to a slow tile
+    });
+    let tilesSeen = 0;
+    viewer.addHandler('tile-loaded', () => { if (!loader.classList.contains('done')) progress(Math.min(95, 70 + ++tilesSeen * 2)); });
 
     // ---- building lookup via the ID map ----
     const byId = new Map(meta.buildings.map((b) => [b.id, b]));
     const idImg = new Image();
     idImg.src = OUT + 'idmap.png';
-    await idImg.decode();
+    try { await idImg.decode(); } catch (e) { console.error(e); return fail("Couldn't load the building index. Try again in a moment."); }
     const idc = document.createElement('canvas');
     idc.width = idImg.width; idc.height = idImg.height;
     const ictx = idc.getContext('2d', { willReadFrequently: true });
@@ -156,19 +357,41 @@
       const x = Math.floor(ix / D), y = Math.floor(iy / D);
       return x >= 0 && y >= 0 && x < idc.width && y < idc.height && idData[(y * idc.width + x) * 4 + 2] >= 128;
     };
+    const lifeBtn = $('life');
     if (life) {
-      try { startTraffic({ viewer, data: life, occluded, canvas: document.getElementById('veh'), cardLayer: document.getElementById('vcards') }); }
+      try { startTraffic({ viewer, data: life, occluded, canvas: $('veh'), cardLayer: $('vcards') }); }
       catch (e) { console.warn('traffic disabled:', e); }
     }
+    function setLife(on, save) {
+      if (!window.mapLife) return;
+      mapLife.setEnabled(on);
+      lifeBtn.classList.toggle('on', on);
+      lifeBtn.setAttribute('aria-pressed', String(on));
+      lifeBtn.setAttribute('aria-label', on ? 'Pause traffic and people' : 'Play traffic and people');
+      if (save) store.set('life', on ? '1' : '0');
+    }
+    if (window.mapLife) setLife(store.get('life') ? store.get('life') === '1' : !reduceMotion);
+    else lifeBtn.hidden = true;
+    lifeBtn.onclick = () => { if (window.mapLife) { const on = !mapLife.isEnabled(); setLife(on, true); toast(on ? 'Traffic on' : 'Traffic paused'); } };
+
+    // compass: which way north points on screen (from the map's own projection)
+    if (life?.projection) {
+      const [PX, PY] = life.projection;
+      $('compass').querySelector('svg').style.transform = `rotate(${Math.atan2(PX[1], -PY[1]) * 180 / Math.PI}deg)`;
+    } else $('compass').hidden = true;
 
     // ---- named parking lots: hover/select them like buildings (ground-level outlines) ----
     const lots = (life?.parking || []).map((l) => ({ ...l, kind: 'parking', ref: null, outlines: [l.outline] }));
     const inRing = (x, y, r) => { let c = false; for (let i = 0, j = r.length - 1; i < r.length; j = i++) { const [xi, yi] = r[i], [xj, yj] = r[j]; if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) c = !c; } return c; };
     const lotAt = (ix, iy) => lots.find((l) => inRing(ix, iy, l.outline)) || null;
     const thingAt = (ix, iy) => buildingAt(ix, iy) || lotAt(ix, iy);
+    // buildings mapped in several pieces share a code (DC, STJ…): treat them as one
+    const byRef = new Map();
+    for (const b of meta.buildings) if (b.ref) byRef.set(b.ref, [...(byRef.get(b.ref) || []), b]);
+    const group = (b) => (b?.ref && byRef.get(b.ref)) || (b ? [b] : []);
 
     // ---- highlight overlay ----
-    const hl = document.getElementById('hl');
+    const hl = $('hl');
     const hctx = hl.getContext('2d');
     let hover = null, selected = null;
     function draw() {
@@ -179,10 +402,11 @@
       const item = viewer.world.getItemAt(0);
       if (!item) return;
       const px = ([x, y]) => item.imageToViewerElementCoordinates(new OpenSeadragon.Point(x, y));
-      for (const [b, style] of [[selected, '#fed34c'], [hover !== selected ? hover : null, '#ffffffcc']]) {
+      const sameAsSel = hover && selected && group(hover).includes(selected);
+      for (const [b, style] of [[selected, '#fed34c'], [sameAsSel ? null : hover, '#ffffffcc']]) {
         if (!b) continue;
         hctx.beginPath();
-        for (const poly of b.outlines) {
+        for (const part of group(b)) for (const poly of part.outlines) {
           poly.forEach((pt, i) => { const p = px(pt); i ? hctx.lineTo(p.x, p.y) : hctx.moveTo(p.x, p.y); });
           hctx.closePath();
         }
@@ -195,11 +419,11 @@
     viewer.addHandler('update-viewport', draw);
     addEventListener('resize', draw);
 
-    const label = (b) => (b.ref ? `<span class="code">${esc(b.ref)}</span>` : '') + esc(b.name || prettyKind(b.kind));
     const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-    const prettyKind = (k) => ({ yes: 'Building', university: 'University building', dormitory: 'Residence', apartments: 'Apartments', house: 'House', retail: 'Shop', part: 'Building', parking: 'Parking lot' }[k] || (k ? k[0].toUpperCase() + k.slice(1).replace(/_/g, ' ') : 'Building'));
+    const prettyKind = (k) => ({ yes: 'Building', university: 'University building', dormitory: 'Residence', apartments: 'Apartments', house: 'House', retail: 'Shop', part: 'Building', parking: 'Parking lot', sports_centre: 'Sports centre', roof: 'Canopy' }[k] || (k ? k[0].toUpperCase() + k.slice(1).replace(/_/g, ' ') : 'Building'));
+    const label = (b) => (b.ref ? `<span class="code">${esc(b.ref)}</span>` : '') + esc(b.name || prettyKind(b.kind));
 
-    const tip = document.getElementById('tip');
+    const tip = $('tip');
     new OpenSeadragon.MouseTracker({
       element: viewer.canvas,
       moveHandler: (e) => {
@@ -213,73 +437,215 @@
           tip.innerHTML = label(b);
           tip.style.display = 'block';
           tip.style.left = Math.min(e.originalEvent.clientX + 14, innerWidth - tip.offsetWidth - 8) + 'px';
-          tip.style.top = e.originalEvent.clientY + 14 + 'px';
+          tip.style.top = Math.min(e.originalEvent.clientY + 14, innerHeight - tip.offsetHeight - 8) + 'px';
         } else tip.style.display = 'none';
       },
       leaveHandler: () => { hover = null; tip.style.display = 'none'; draw(); },
     });
     viewer.addHandler('canvas-click', (e) => {
       if (!e.quick) return;
+      stopTour();
       const item = viewer.world.getItemAt(0);
       const ip = item.viewerElementToImageCoordinates(e.position);
       select(thingAt(ip.x, ip.y), false);
     });
+    viewer.addHandler('canvas-drag', () => stopTour());
+    viewer.addHandler('canvas-scroll', () => stopTour());
 
-    const card = document.getElementById('card');
+    // ---- position on the ground, for "Directions" (invert the projection at roughly mid-height) ----
+    const center = (b) => {
+      const pts = b.outlines.flat();
+      const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+      return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) };
+    };
+    function latLon(b) {
+      if (!life?.projection || !meta.origin) return null;
+      let x = b.x, y = b.y;
+      if (x == null) {
+        const [PX, PY] = life.projection, r = center(b), h = (b.height || 0) / 2;
+        const u = (r.x0 + r.x1) / 2 - PX[2] * h - PX[3], v = (r.y0 + r.y1) / 2 - PY[2] * h - PY[3];
+        const det = PX[0] * PY[1] - PX[1] * PY[0];
+        x = (u * PY[1] - v * PX[1]) / det; y = (PX[0] * v - PY[0] * u) / det;
+      }
+      const KX = Math.cos((meta.origin.lat * Math.PI) / 180) * 111320, KY = 110540;
+      return [(meta.origin.lat + y / KY).toFixed(6), (meta.origin.lon + x / KX).toFixed(6)];
+    }
+
+    // ---- selection card + shareable links (#DC, #way/123, #lot/Lot%20C) ----
+    const keyOf = (b) => (b.kind === 'parking' ? 'lot/' + b.name : b.ref || b.osm);
+    const fromKey = (k) => {
+      if (!k) return null;
+      if (k.startsWith('lot/')) return lots.find((l) => l.name === k.slice(4)) || null;
+      return byRef.get(k)?.[0] || meta.buildings.find((b) => b.osm === k) || byRef.get(k.toUpperCase())?.[0] || null;
+    };
+    const card = $('card');
     card.querySelector('.x').onclick = () => select(null);
+    const shareIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>';
+    const pinIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>';
     function select(b, fly) {
       selected = b;
       draw();
-      if (!b) { card.style.display = 'none'; return; }
+      const key = b ? '#' + encodeURI(keyOf(b)) : '';
+      if (location.hash !== key) history.replaceState(null, '', key || location.pathname + location.search);
+      document.title = b ? `${b.ref ? b.ref + ' · ' : ''}${b.name || prettyKind(b.kind)} · Isometric UWaterloo` : 'Isometric UWaterloo';
+      if (!b) { card.classList.remove('show'); return; }
+      const parts = group(b);
+      const levels = Math.max(...parts.map((p) => p.levels || 0)), height = Math.max(...parts.map((p) => p.height || 0));
+      const ll = latLon(b);
       const rows = [
         ['Type', prettyKind(b.kind)],
-        b.levels ? ['Storeys', b.levels] : null,
-        b.kind === 'parking' ? (b.access ? ['Access', esc(b.access)] : null) : ['Height', `~${Math.round(b.height)} m`],
+        levels ? ['Storeys', levels] : null,
+        b.kind === 'parking' ? (b.access ? ['Access', esc(b.access)] : null) : height ? ['Height', `~${Math.round(height)} m`] : null,
         b.kind === 'parking' && b.area ? ['Size', `~${Math.round(b.area / 100) * 100} m²`] : null,
         b.address ? ['Address', esc(b.address)] : null,
         b.operator ? ['Operator', esc(b.operator)] : null,
-        b.osm ? ['Source', `<a href="https://www.openstreetmap.org/${b.osm}" target="_blank" rel="noopener">OpenStreetMap</a>`] : null,
+        b.osm ? ['Source', `<a href="https://www.openstreetmap.org/${esc(b.osm)}" target="_blank" rel="noopener">OpenStreetMap</a>`] : null,
       ].filter(Boolean);
-      document.getElementById('cardBody').innerHTML =
+      $('cardBody').innerHTML =
         (b.ref ? `<span class="code">${esc(b.ref)}</span>` : '') + `<h2>${esc(b.name || prettyKind(b.kind))}</h2>` +
-        `<dl>${rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>`;
-      card.style.display = 'block';
-      if (fly) {
-        const pts = b.outlines.flat();
-        const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
-        const pad = 250;
-        const r = viewer.viewport.imageToViewportRectangle(Math.min(...xs) - pad, Math.min(...ys) - pad, Math.max(...xs) - Math.min(...xs) + 2 * pad, Math.max(...ys) - Math.min(...ys) + 2 * pad);
-        viewer.viewport.fitBounds(r);
-      }
+        `<dl>${rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>` +
+        `<div class="actions"><button class="btn" id="share">${shareIcon}Share</button>` +
+        (ll ? `<a class="btn" href="https://www.google.com/maps/dir/?api=1&destination=${ll.join(',')}" target="_blank" rel="noopener">${pinIcon}Directions</a>` : '') + '</div>';
+      $('share').onclick = () => share(b);
+      card.classList.remove('show'); void card.offsetWidth; card.classList.add('show');
+      if (fly) flyTo(b);
     }
+    function flyTo(b, pad = 250) {
+      const r = group(b).map(center).reduce((a, c) => ({ x0: Math.min(a.x0, c.x0), x1: Math.max(a.x1, c.x1), y0: Math.min(a.y0, c.y0), y1: Math.max(a.y1, c.y1) }));
+      viewer.viewport.fitBounds(viewer.viewport.imageToViewportRectangle(r.x0 - pad, r.y0 - pad, r.x1 - r.x0 + 2 * pad, r.y1 - r.y0 + 2 * pad), reduceMotion);
+    }
+    async function share(b) {
+      const url = location.href, title = `${b.name || prettyKind(b.kind)} · Isometric UWaterloo`;
+      if (navigator.share && matchMedia('(hover: none)').matches) { try { await navigator.share({ title, url }); return; } catch (e) { if (e.name === 'AbortError') return; } }
+      try { await navigator.clipboard.writeText(url); toast('Link copied'); } catch { prompt('Copy this link', url); }
+    }
+    let toastTimer;
+    function toast(msg) {
+      const t = $('toast');
+      t.textContent = msg; t.classList.add('show');
+      clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 1800);
+    }
+    addEventListener('hashchange', () => { const b = fromKey(decodeURI(location.hash.slice(1))); if (b !== selected) select(b, true); });
 
     // ---- search ----
     const named = [...meta.buildings.filter((b) => b.name || b.ref), ...lots];
-    const search = document.getElementById('search'), results = document.getElementById('results');
-    let hits = [], active = 0;
-    function renderResults() {
-      results.innerHTML = hits.map((b, i) => `<li class="${i === active ? 'active' : ''}" data-i="${i}">${label(b)}</li>`).join('');
+    const search = $('search'), results = $('results'), sbox = search.parentElement;
+    const POPULAR = ['DC', 'MC', 'SLC', 'E7', 'LIB', 'PAC', 'QNC', 'E5'].map((r) => byRef.get(r)?.[0]).filter(Boolean);
+    const norm = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+    let hits = [], active = 0, heading = '';
+    function renderResults(note) {
+      const items = hits.map((b, i) => `<li role="option" id="opt${i}" aria-selected="${i === active}" class="${i === active ? 'active' : ''}" data-i="${i}"><span class="nm">${label(b)}</span><small>${esc(prettyKind(b.kind))}</small></li>`).join('');
+      results.innerHTML = note ? `<li class="note">${note}</li>` : (heading && hits.length ? `<li class="hd">${heading}</li>` : '') + items;
+      sbox.setAttribute('aria-expanded', String(!!hits.length));
+      if (hits.length) search.setAttribute('aria-activedescendant', 'opt' + active); else search.removeAttribute('aria-activedescendant');
+      results.querySelector('.active')?.scrollIntoView({ block: 'nearest' });
     }
-    search.addEventListener('input', () => {
-      const q = search.value.trim().toLowerCase();
+    function runSearch() {
+      const q = norm(search.value);
       active = 0;
-      const seen = new Set();
-      hits = !q ? [] : named
-        .map((b) => ({ b, s: (b.ref || '').toLowerCase() === q ? 0 : (b.ref || '').toLowerCase().startsWith(q) ? 1 : (b.name || '').toLowerCase().includes(q) ? 2 : 9 }))
-        .filter((x) => x.s < 9).sort((a, b) => a.s - b.s)
+      if (!q) { hits = document.activeElement === search ? POPULAR : []; heading = 'Popular'; return renderResults(); }
+      heading = '';
+      const seen = new Set(), words = q.split(' ');
+      hits = named
+        .map((b) => {
+          const r = norm(b.ref), n = norm(b.name);
+          const s = r === q ? 0 : r.startsWith(q) ? 1 : n.startsWith(q) ? 2 : n.split(' ').some((w) => w.startsWith(q)) ? 3 : words.every((w) => n.includes(w) || r === w) ? 4 : norm(prettyKind(b.kind)).includes(q) ? 5 : 9;
+          return { b, s };
+        })
+        .filter((x) => x.s < 9).sort((a, b) => a.s - b.s || (a.b.name || '').localeCompare(b.b.name || ''))
         .map((x) => x.b).filter((b) => { const k = b.ref || b.name; if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 8);
-      renderResults();
-    });
+      renderResults(hits.length ? '' : `No buildings match “${esc(search.value.trim())}”`);
+    }
+    const pick = (b) => { stopTour(); select(b, true); hits = []; renderResults(); search.blur(); };
+    search.addEventListener('input', runSearch);
+    search.addEventListener('focus', runSearch);
+    search.addEventListener('blur', () => setTimeout(() => { if (document.activeElement !== search) { hits = []; renderResults(); } }, 150));
     search.addEventListener('keydown', (e) => {
       if (e.key === 'ArrowDown') { active = Math.min(active + 1, hits.length - 1); renderResults(); e.preventDefault(); }
       if (e.key === 'ArrowUp') { active = Math.max(active - 1, 0); renderResults(); e.preventDefault(); }
-      if (e.key === 'Enter' && hits[active]) { select(hits[active], true); hits = []; renderResults(); search.blur(); }
-      if (e.key === 'Escape') { hits = []; renderResults(); search.blur(); }
+      if (e.key === 'Enter' && hits[active]) pick(hits[active]);
+      if (e.key === 'Escape') { if (search.value) { search.value = ''; runSearch(); } else { hits = []; renderResults(); search.blur(); } e.stopPropagation(); }
     });
-    results.addEventListener('click', (e) => {
-      const li = e.target.closest('li');
-      if (li) { select(hits[+li.dataset.i], true); hits = []; renderResults(); }
+    results.addEventListener('mousedown', (e) => e.preventDefault()); // keep focus so blur doesn't eat the click
+    results.addEventListener('click', (e) => { const li = e.target.closest('li[data-i]'); if (li) pick(hits[+li.dataset.i]); });
+
+    // ---- surprise me + campus tour ----
+    const interesting = meta.buildings.filter((b) => b.name && b.ref);
+    let lastRandom = null;
+    function randomBuilding() {
+      stopTour();
+      let b; do b = interesting[Math.floor(Math.random() * interesting.length)]; while (interesting.length > 1 && b.ref === lastRandom);
+      lastRandom = b.ref;
+      select(b, true);
+    }
+    $('random').onclick = randomBuilding;
+    const TOUR = ['DC', 'MC', 'E7', 'QNC', 'SLC', 'LIB', 'HH', 'PAC', 'CIF', 'STC', 'EV3', 'REV', 'V1'].map((r) => byRef.get(r)?.[0]).filter(Boolean);
+    const tourBtn = $('tour');
+    let tourTimer = null, tourIdx = 0;
+    function stopTour() {
+      if (!tourTimer) return;
+      clearInterval(tourTimer); tourTimer = null;
+      tourBtn.classList.remove('on'); tourBtn.setAttribute('aria-pressed', 'false'); tourBtn.querySelector('span').textContent = 'Campus tour';
+    }
+    function startTour() {
+      if (!TOUR.length) return;
+      tourBtn.classList.add('on'); tourBtn.setAttribute('aria-pressed', 'true'); tourBtn.querySelector('span').textContent = 'Stop tour';
+      const next = () => { select(TOUR[tourIdx++ % TOUR.length], true); };
+      next();
+      tourTimer = setInterval(next, 5500);
+    }
+    tourBtn.onclick = () => (tourTimer ? stopTour() : startTour());
+
+    // ---- controls ----
+    const zoomBy = (f) => { stopTour(); viewer.viewport.zoomBy(f); viewer.viewport.applyConstraints(); };
+    $('zin').onclick = () => zoomBy(1.6);
+    $('zout').onclick = () => zoomBy(1 / 1.6);
+    $('home').onclick = () => { stopTour(); viewer.viewport.goHome(); };
+    const fsBtn = $('fs');
+    if (!document.fullscreenEnabled) fsBtn.hidden = true;
+    const toggleFS = () => (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()).catch(() => {});
+    fsBtn.onclick = toggleFS;
+    document.addEventListener('fullscreenchange', () => fsBtn.classList.toggle('on', !!document.fullscreenElement));
+    const help = $('help');
+    const openHelp = () => { if (!help.open) help.showModal(); };
+    $('helpbtn').onclick = openHelp;
+    help.querySelector('.x').onclick = () => help.close();
+    help.addEventListener('click', (e) => { if (e.target === help) help.close(); });
+    const n = (k) => meta.buildings.filter(k).length;
+    $('stats').innerHTML = [
+      `${meta.buildings.length} buildings`, `${byRef.size} with campus codes`, `${n((b) => b.kind === 'dormitory')} residences`, lots.length ? `${lots.length} parking lots` : '',
+      window.mapLife ? `${mapLife.cars.length} cars · ${mapLife.buses.length} buses` : '',
+    ].filter(Boolean).map((s) => `<span>${s}</span>`).join('');
+
+    addEventListener('keydown', (e) => {
+      if (e.metaKey || e.ctrlKey || e.altKey || help.open) return;
+      const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName);
+      if (typing) return;
+      const k = e.key, pan = 0.12 / viewer.viewport.getZoom();
+      const act = {
+        '/': () => search.focus(), '?': openHelp,
+        '+': () => zoomBy(1.6), '=': () => zoomBy(1.6), '-': () => zoomBy(1 / 1.6), '_': () => zoomBy(1 / 1.6), '0': () => $('home').click(),
+        r: randomBuilding, R: randomBuilding, t: () => tourBtn.click(), T: () => tourBtn.click(),
+        l: () => lifeBtn.click(), L: () => lifeBtn.click(), f: toggleFS, F: toggleFS,
+        Escape: () => { stopTour(); select(null); },
+        ArrowLeft: () => viewer.viewport.panBy(new OpenSeadragon.Point(-pan, 0)), ArrowRight: () => viewer.viewport.panBy(new OpenSeadragon.Point(pan, 0)),
+        ArrowUp: () => viewer.viewport.panBy(new OpenSeadragon.Point(0, -pan)), ArrowDown: () => viewer.viewport.panBy(new OpenSeadragon.Point(0, pan)),
+      }[k];
+      if (act) { act(); e.preventDefault(); }
     });
+
+    // ---- once the first view is on screen: open a shared link, or say hello on a first visit ----
+    function onReady() {
+      const linked = fromKey(decodeURI(location.hash.slice(1)));
+      if (linked) select(linked, true);
+      else if (location.hash) history.replaceState(null, '', location.pathname + location.search);
+      if (!store.get('visited')) {
+        store.set('visited', '1');
+        setTimeout(() => toast(matchMedia('(hover: none)').matches ? 'Tap any building to see what it is' : 'Point at any building · press / to search'), 900);
+      }
+    }
+    appReady = true;
+    finishLoading();
   })();
   </script>
 </body>

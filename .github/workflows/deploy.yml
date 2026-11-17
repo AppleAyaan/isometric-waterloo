@@ -1,0 +1,41 @@
+# Builds site/ from the committed outputs in out/ and publishes it to GitHub Pages.
+# One-time setup: repo Settings -> Pages -> Source: "GitHub Actions".
+name: Deploy site
+
+on:
+  push:
+    branches: [main]
+    paths: ['viewer/**', 'out/**', 'scripts/build_site.mjs', 'scripts/tiles.mjs', 'scripts/png.mjs', '.github/workflows/deploy.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - id: pages
+        uses: actions/configure-pages@v5
+      # the site build uses only Node built-ins, so no npm install (and no Playwright download) is needed
+      - run: node scripts/build_site.mjs
+        env:
+          SITE_URL: ${{ steps.pages.outputs.base_url }}/
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4

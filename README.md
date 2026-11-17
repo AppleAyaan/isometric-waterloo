@@ -18,9 +18,23 @@ OpenStreetMap ──► scene.json ──► three.js isometric render ──►
 | 3b. Render real 3D imagery | `npm run export -- --source google` (needs `.google-maps-key`) | `out/photo.png` (+ ID map/meta) |
 | 4. Paint it (free GPU) | open `colab/paint_waterloo.ipynb` in Google Colab | `map.png` → put in `out/` |
 | 5. View | `npm run serve` → http://localhost:8080 | |
-| 6. Deploy | `npm run site` → upload `site/` to GitHub Pages or Cloudflare Pages | |
+| 6. Deploy | `npm run site` (check it with `npm run preview`) → push to `main`, or upload `site/` anywhere static | `site/` |
 
 Setup: `npm install` (export uses your installed Google Chrome via Playwright).
+
+### Deploying
+`npm run site` builds a static `site/` folder:
+- the map is cut into a Deep Zoom tile pyramid (`out/map.dzi` + `map_files/`), so visitors stream only the tiles on screen instead of a 25-megapixel PNG. The tiler is pure Node (`scripts/tiles.mjs`, `scripts/png.mjs`), so the build needs no `npm install`;
+- `photo.png` (raw Google imagery) and `render.png` are never published;
+- it adds a social preview image (`og.png`), favicon/app icons, `site.webmanifest`, `robots.txt`, `sitemap.xml`, `404.html`, `.nojekyll` and a `_headers` file (cache rules for Cloudflare Pages / Netlify).
+
+Link previews need the public URL: `SITE_URL=https://your.domain/ npm run site` (defaults to the GitHub Pages URL).
+
+**GitHub Pages:** `.github/workflows/deploy.yml` rebuilds and publishes on every push to `main` that touches the viewer or `out/`. Turn it on once under *Settings → Pages → Source: GitHub Actions*.
+**Cloudflare Pages / Netlify:** build command `node scripts/build_site.mjs`, output directory `site`.
+
+### Viewer features
+Search by code or name (with keyboard navigation and popular picks), shareable links that open on a building (`#DC`, `#lot/Lot C`), *Surprise me*, a self-running campus tour, directions in Google Maps, pause/play for the simulated traffic (off by default with reduced motion), full screen, a north arrow, and keyboard shortcuts (press `?` on the map).
 
 ### Google 3D Tiles via Cesium ion (no Google Cloud account)
 1. Sign up at https://ion.cesium.com, open **Asset Depot**, and add **Google Photorealistic 3D Tiles** to My Assets.

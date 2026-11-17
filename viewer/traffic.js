@@ -891,9 +891,18 @@ window.startTraffic = function startTraffic({ viewer, data: T, occluded, canvas,
 
   // ---------- frame ----------
   // keep animating even if one frame throws (log the first error only)
+  // paused: nothing moves or draws, and the clock does not jump when it resumes
+  let enabled = true;
   function frame(now) {
-    try { drawFrame(now); } catch (e) { if (!frame.err) { frame.err = e; console.error('map life frame failed', e); } }
+    if (enabled) {
+      try { drawFrame(now); } catch (e) { if (!frame.err) { frame.err = e; console.error('map life frame failed', e); } }
+    } else frame.last = now;
     requestAnimationFrame(frame);
+  }
+  function setEnabled(on) {
+    enabled = !!on;
+    cardLayer.style.display = enabled ? '' : 'none';
+    if (!enabled) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, canvas.width, canvas.height); }
   }
   function drawFrame(now) {
     const dt = Math.min(0.1, (now - (frame.last || now)) / 1000);
@@ -966,8 +975,9 @@ window.startTraffic = function startTraffic({ viewer, data: T, occluded, canvas,
       if (!q.hidden) q.draw(q, small);
     }
 
-    // cards for buses and trains (anchored above the middle box)
+    // cards for buses and trains (anchored above the middle box); too zoomed out to read, they would just bury the map
     const compact = pxPerM < 1.1;
+    cardLayer.style.visibility = pxPerM < 0.3 ? 'hidden' : '';
     const placed = [];
     for (const v of [...buses, ...trains]) {
       const el = cardOf.get(v);
@@ -1004,7 +1014,8 @@ window.startTraffic = function startTraffic({ viewer, data: T, occluded, canvas,
     }
 
   }
-  window.mapLife = { cars, buses, trains, crossings, games, geese }; // handy for poking at in devtools
+  // handy for poking at in devtools; the viewer uses setEnabled / isEnabled for its play-pause button
+  window.mapLife = { cars, buses, trains, crossings, games, geese, setEnabled, isEnabled: () => enabled };
   // let things settle a little before the first frame
   for (let i = 0; i < 60; i++) step(0.1);
   requestAnimationFrame(frame);
