@@ -304,7 +304,19 @@
   </dialog>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.1/openseadragon.min.js"></script>
+  <script>
+    // feature modules (viewer/*.js) register with onApp(fn); fn(app) runs once the map is up
+    window.onApp = (fn) => { if (window.app?.ready) { try { fn(window.app); } catch (e) { console.error(e); } } else (window.onApp.q ||= []).push(fn); };
+  </script>
   <script src="traffic.js"></script>
+  <!-- FEATURE MODULES (each registers through onApp) -->
+  <script src="sky.js"></script>
+  <script src="events.js"></script>
+  <script src="timelapse.js"></script>
+  <script src="eggs.js"></script>
+  <script src="follow.js"></script>
+  <script src="sound.js"></script>
+  <script src="route.js"></script>
   <script>
   (async () => {
     const OUT = new URL('../out/', location.href).href;
@@ -425,10 +437,22 @@
 
     // ---- night on campus: a second, pre-lit copy of the map (npm run night) cross-fades over the day map ----
     const nightBtn = $('night'), themeColor = document.querySelector('meta[name=theme-color]');
-    let nightOn = false, nightLayer = null, nightFade = 0;
+    let nightOn = false, nightLayer = null, nightFade = 0, nightLevel = 0;
+    const mixHex = (a, b, k) => '#' + [0, 2, 4].map((i) => Math.round(parseInt(a.slice(1 + i, 3 + i), 16) * (1 - k) + parseInt(b.slice(1 + i, 3 + i), 16) * k).toString(16).padStart(2, '0')).join('');
+    // how dark it is, 0 (day) .. 1 (full night). Between, the night map is partly faded in (dusk / dawn).
+    function setNightLevel(k, instant) {
+      if (!nightInfo) return;
+      k = Math.max(0, Math.min(1, k));
+      const on = k >= 0.5;
+      if (on !== nightOn || nightLayer == null) setNight(on, k);
+      nightLevel = k;
+      document.body.style.backgroundColor = mixHex(meta.background, nightInfo.background, k);
+      window.mapLife?.setNightLevel(k);
+      if (nightLayer && nightLayer !== 'loading') { if (instant) { cancelAnimationFrame(nightFade); nightLayer.setOpacity(k); viewer.world.getItemAt(0).setOpacity(k > 0.999 ? 0 : 1); } else fadeNight(k); }
+    }
     function fadeNight(to) {
       cancelAnimationFrame(nightFade);
-      const from = nightLayer.getOpacity(), t0 = performance.now(), dur = reduceMotion ? 1 : 900;
+      const from = nightLayer.getOpacity(), t0 = performance.now(), dur = reduceMotion || Math.abs(to - from) < 0.08 ? 1 : 900;
       const tick = (now) => {
         const u = Math.min(1, (now - t0) / dur), e = u * u * (3 - 2 * u);
         nightLayer.setOpacity(from + (to - from) * e);
@@ -438,17 +462,17 @@
       };
       nightFade = requestAnimationFrame(tick);
     }
-    function setNight(on) {
+    function setNight(on, level = on ? 1 : 0) {
       if (!nightInfo) return;
-      nightOn = on;
+      nightOn = on; nightLevel = level;
       document.documentElement.toggleAttribute('data-night', on);
-      document.body.style.backgroundColor = on ? nightInfo.background : meta.background;
+      document.body.style.backgroundColor = mixHex(meta.background, nightInfo.background, level);
       themeColor.content = on ? nightInfo.background : meta.background;
       nightBtn.classList.toggle('on', on);
       nightBtn.setAttribute('aria-pressed', String(on));
-      window.mapLife?.setNight(on);
-      if (nightLayer && nightLayer !== 'loading') return fadeNight(on ? 1 : 0);
-      if (!on || nightLayer) return;
+      window.mapLife?.setNightLevel(level);
+      if (nightLayer && nightLayer !== 'loading') return fadeNight(level);
+      if (level <= 0.001 || nightLayer) return;
       // fetched on first use only, so daytime visitors never download it
       nightLayer = 'loading';
       const slow = setTimeout(() => toast('Turning the lights on…'), 400);
@@ -457,7 +481,7 @@
         x: 0, y: 0, width: 1, opacity: 0,
         success: (e) => {
           nightLayer = e.item; clearTimeout(slow);
-          const go = () => fadeNight(nightOn ? 1 : 0);
+          const go = () => fadeNight(nightLevel);
           if (e.item.getFullyLoaded?.()) go(); else { e.item.addOnceHandler('fully-loaded-change', go); setTimeout(go, 2500); }
         },
         error: () => { clearTimeout(slow); nightLayer = null; toast("Couldn't load the night map"); setNight(false); },
@@ -480,6 +504,16 @@
     // the street lights come on a little after sunset (sun ~3 degrees below the horizon) and go off around dawn
     const DUSK = -3;
     const isDark = (t) => sunElevation(t) < DUSK;
+    // The map's clock. Normally real time; the time-lapse moves it (offset) and speeds it up (rate).
+    // nightLevelFor(date) -> 0..1 decides how dark the map is; sky.js replaces it with a smooth twilight.
+    const simClock = { base: Date.now(), at: performance.now(), rate: 1, live: true };
+    const appNow = () => (simClock.live ? new Date() : new Date(simClock.base + (performance.now() - simClock.at) * simClock.rate));
+    function setSimTime(date, rate = simClock.rate) {
+      if (date == null) { simClock.live = true; simClock.rate = 1; }
+      else Object.assign(simClock, { base: +date, at: performance.now(), rate, live: false });
+      tickClock();
+    }
+    let nightLevelFor = (t) => (isDark(t) ? 1 : 0);
     // when the light next changes: step forward in 10 min, then narrow to the minute
     function nextChange(from) {
       const now = isDark(from);
@@ -500,7 +534,7 @@
     if (params.has('night') || params.has('day')) { manualValue = params.has('night'); manualUntil = Infinity; }
     function wantNight(now) { return now.getTime() < manualUntil ? manualValue : isDark(now); }
     function tickClock() {
-      const now = new Date();
+      const now = appNow();
       if (manualUntil !== Infinity && manualUntil && now.getTime() >= manualUntil) { manualUntil = 0; store.set('nightManualUntil', '0'); }
       const manual = now.getTime() < manualUntil;
       clockTime.textContent = fmtTime.format(now).replace(/\s?([ap])\.?m\.?/i, (_, x) => ' ' + x.toUpperCase() + 'M');
@@ -509,11 +543,17 @@
         ? (manualValue ? 'Night mode' : 'Day mode') + ' · your pick'
         : `Waterloo ${tzName(now)} · ${dark ? 'sunrise' : 'dusk'} ${fmtTime.format(next).replace(/\s?([ap])\.?m\.?/i, (_, x) => ' ' + x.toUpperCase() + 'M')}`;
       clockEl.classList.toggle('manual', manual);
-      const want = wantNight(now);
-      if (nightInfo && want !== nightOn) setNight(want); // safe mid-load: the fade-in goes to whatever is current
+      // safe mid-load: the fade-in goes to whatever is current
+      const manualNow = simClock.live && now.getTime() < manualUntil;
+      if (nightInfo) setNightLevel(manualNow ? (manualValue ? 1 : 0) : nightLevelFor(now), !simClock.live);
+      if (!simClock.live) clockSub.textContent = (simClock.rate > 1 ? 'Time-lapse' : 'Time travel') + ' · ' + fmtDay.format(now);
+      clockEl.classList.toggle('manual', manual || !simClock.live);
+      if (window.app) for (const fn of app.tickers) try { fn(now); } catch (e) { console.error(e); }
     }
+    const fmtDay = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, weekday: 'short', month: 'short', day: 'numeric' });
     $('clockauto').onclick = () => {
       manualUntil = 0; store.set('nightManualUntil', '0');
+      if (!simClock.live) { setSimTime(null); window.app?.emit('timechange'); }
       tickClock();
       toast(nightOn ? 'Following Waterloo time: night' : 'Following Waterloo time: day');
     };
@@ -527,16 +567,18 @@
       nightBtn.title = 'Night on campus (N). Follows the time in Waterloo until you flip it';
       nightBtn.onclick = () => {
         const on = !nightOn, now = new Date();
+        if (!simClock.live) { setSimTime(null); window.app?.emit('timechange'); }
         // your pick lasts until the next dusk or dawn; picking what live time already shows just follows it
         if (on === isDark(now)) { manualUntil = 0; store.set('nightManualUntil', '0'); }
         else { manualValue = on; manualUntil = nextChange(now).getTime(); store.set('nightManual', on ? '1' : '0'); store.set('nightManualUntil', String(manualUntil)); }
-        setNight(on);
+        setNightLevel(on ? 1 : 0);
         tickClock();
         toast(manualUntil > Date.now() ? (on ? 'Night on campus until sunrise' : 'Daytime until dusk') : on ? 'Night on campus' : 'Back to daytime');
       };
     }
     tickClock();
-    setInterval(tickClock, 15000);
+    // every 15 s live; every frame-ish while time-lapsing
+    (function clockLoop() { setTimeout(() => { tickClock(); clockLoop(); }, simClock.live ? 15000 : 250); })();
 
     // compass: which way north points on screen (from the map's own projection)
     if (life?.projection) {
@@ -610,6 +652,7 @@
       if (!e.quick) return;
       stopTour();
       const item = viewer.world.getItemAt(0);
+      for (const fn of window.app?.clickHandlers || []) if (fn(e.position.x, e.position.y, e)) return;
       const ip = item.viewerElementToImageCoordinates(e.position);
       select(thingAt(ip.x, ip.y), false);
     });
@@ -794,7 +837,7 @@
         Escape: () => { stopTour(); select(null); },
         ArrowLeft: () => viewer.viewport.panBy(new OpenSeadragon.Point(-pan, 0)), ArrowRight: () => viewer.viewport.panBy(new OpenSeadragon.Point(pan, 0)),
         ArrowUp: () => viewer.viewport.panBy(new OpenSeadragon.Point(0, -pan)), ArrowDown: () => viewer.viewport.panBy(new OpenSeadragon.Point(0, pan)),
-      }[k];
+      }[k] || window.app?.keys[k] || window.app?.keys[k.toLowerCase()];
       if (act) { act(); e.preventDefault(); }
     });
 
@@ -808,6 +851,31 @@
         setTimeout(() => toast(matchMedia('(hover: none)').matches ? 'Tap any building to see what it is' : 'Point at any building · press / to search'), 900);
       }
     }
+    // ---- the app object feature modules get (see window.onApp) ----
+    const handlers = {};
+    window.app = {
+      viewer, meta, life, nightInfo, OUT, TILED, store, reduceMotion, toast, select, flyTo, stopTour, esc,
+      byRef, group, center, latLon, lots, buildingAt, thingAt, label, prettyKind, getSelected: () => selected,
+      CAMPUS, TZ, sunElevation, isDark, now: appNow, setSimTime, isLive: () => simClock.live, getRate: () => simClock.rate,
+      setNightLevelFn: (fn) => { nightLevelFor = fn; tickClock(); }, getNightLevel: () => nightLevel, refreshClock: tickClock,
+      tickers: [], onTick: (fn) => window.app.tickers.push(fn),
+      // project scene metres to image px (h metres up) and back (on the ground)
+      sceneToImage: (x, y, h = 0) => { const [PX, PY] = life.projection; return [PX[0] * x + PX[1] * y + PX[2] * h + PX[3], PY[0] * x + PY[1] * y + PY[2] * h + PY[3]]; },
+      imageToScene: (ix, iy) => { const [PX, PY] = life.projection, u = ix - PX[3], v = iy - PY[3], det = PX[0] * PY[1] - PX[1] * PY[0]; return [(u * PY[1] - v * PX[1]) / det, (PX[0] * v - PY[0] * u) / det]; },
+      imageToScreen: (ix, iy) => { const p = viewer.world.getItemAt(0).imageToViewerElementCoordinates(new OpenSeadragon.Point(ix, iy)); return [p.x, p.y]; },
+      screenToImage: (sx, sy) => { const p = viewer.world.getItemAt(0).viewerElementToImageCoordinates(new OpenSeadragon.Point(sx, sy)); return [p.x, p.y]; },
+      // add a round button to the right-hand control bar (above the compass divider)
+      addControl: (btn) => { const c = $('controls'), hrs = c.querySelectorAll('hr'); c.insertBefore(btn, hrs[hrs.length - 1]); return btn; },
+      // map clicks: a handler returning true swallows the click (no building select)
+      clickHandlers: [],
+      on: (ev, fn) => (handlers[ev] ||= []).push(fn),
+      emit: (ev, ...a) => (handlers[ev] || []).forEach((fn) => { try { fn(...a); } catch (e) { console.error(e); } }),
+      keys: {}, // extra keyboard shortcuts: key -> fn
+      helpSection: (title, html) => { const h = $('help').querySelector('h3:last-of-type'); h.insertAdjacentHTML('beforebegin', `<h3>${title}</h3>${html}`); },
+      ready: true,
+    };
+    for (const fn of window.onApp.q || []) try { fn(app); } catch (e) { console.error('module failed', e); }
+    window.onApp.q = [];
     appReady = true;
     finishLoading();
   })();
