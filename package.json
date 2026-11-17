@@ -10,11 +10,15 @@
     "traffic": "node scripts/traffic.mjs",
     "serve": "node scripts/serve.mjs",
     "site": "node scripts/build_site.mjs",
-    "notebook": "python3 colab/make_notebook.py"
+    "notebook": "python3 colab/make_notebook.py",
+    "preview": "node scripts/serve.mjs --root site"
   },
   "dependencies": {
     "3d-tiles-renderer": "^0.5.4",
     "playwright": "^1.65.0",
     "three": "^0.170.0"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }
