@@ -175,7 +175,7 @@
     #loader { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; background: var(--bg); transition: opacity .5s; }
     #loader.done { opacity: 0; pointer-events: none; }
     #loader .in { display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center; padding: 24px; }
-    #loader .cube { width: 64px; height: 64px; animation: bob 1.4s ease-in-out infinite; }
+    #loader .cube { width: 64px; height: 84px; object-fit: contain; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .15)); animation: bob 1.4s ease-in-out infinite; }
     @keyframes bob { 50% { transform: translateY(-8px); } }
     #loader h1 { margin: 0; font: 20px/1.2 Silkscreen, monospace; }
     #loader h1 span { color: var(--gold-deep); }
@@ -218,7 +218,7 @@
 <body>
   <div id="loader" role="status" aria-live="polite">
     <div class="in">
-      <svg class="cube" viewBox="0 0 64 64" aria-hidden="true"><path d="M32 3 59 18v28L32 61 5 46V18z" fill="#1f1c17"/><path d="M32 8 54 20 32 32 10 20z" fill="#fed34c"/><path d="M10 20 32 32v24L10 44z" fill="#c99a06"/><path d="M54 20 32 32v24l22-12z" fill="#e8b923"/></svg>
+      <img class="cube" src="uwaterloo-logo.png" alt="" aria-hidden="true">
       <h1>Isometric <span>UWaterloo</span></h1>
       <div class="bar"><i></i></div>
       <p id="loadmsg">Loading the map…</p>
@@ -310,6 +310,7 @@
   <script src="traffic.js"></script>
   <!-- FEATURE MODULES (each registers through onApp) -->
   <script src="sky.js"></script>
+  <script src="atmosphere.js"></script>
   <script src="events.js"></script>
   <script src="timelapse.js"></script>
   <script src="eggs.js"></script>
@@ -365,6 +366,35 @@
     });
     window.viewer = viewer;
     document.body.style.background = meta.background;
+    // The empty paper around campus is made see-through, so the sky backdrop (atmosphere.js) shows around the
+    // map and nothing marks the edge of the image's rectangle. Each tile is keyed once, the first time it's
+    // drawn. Day map: pixels fade to clear as they near the paper colour, un-blended from it so the soft edge
+    // keeps its own colour (no paper fringe; nothing inside campus is that close to the paper). Night map: only
+    // the exact sky fill goes, since its dark ground can sit within a few levels of that colour.
+    const hexRGB = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+    const KEY = { day: { bg: hexRGB(meta.background), soft: 12 }, night: nightInfo && { bg: hexRGB(nightInfo.background), soft: 0 } };
+    viewer.addHandler('tile-loaded', (e) => { e.tile.keyAs = viewer.world.getIndexOfItem(e.tiledImage) === 0 ? KEY.day : KEY.night; });
+    const tileContext = OpenSeadragon.Tile.prototype.getCanvasContext;
+    OpenSeadragon.Tile.prototype.getCanvasContext = function () {
+      const c = tileContext.call(this);
+      if (c && this.keyAs && !c.canvas.keyed) { c.canvas.keyed = true; keyOut(c, this.keyAs); }
+      return c;
+    };
+    function keyOut(c, { bg: [R, G, B], soft }) {
+      const { width: w, height: h } = c.canvas;
+      if (!w || !h) return;
+      let img;
+      try { img = c.getImageData(0, 0, w, h); } catch { return; }
+      const d = img.data;
+      for (let i = 0; i < d.length; i += 4) {
+        const dist = Math.abs(d[i] - R) + Math.abs(d[i + 1] - G) + Math.abs(d[i + 2] - B);
+        if (dist > soft) continue;
+        if (dist === 0) { d[i + 3] = 0; continue; }
+        const a = dist / soft; // seen = paper * (1 - a) + own * a
+        d[i] = R + (d[i] - R) / a; d[i + 1] = G + (d[i + 1] - G) / a; d[i + 2] = B + (d[i + 2] - B) / a; d[i + 3] = 255 * a;
+      }
+      c.putImageData(img, 0, 0);
+    }
     // the loading screen lifts once the first view's tiles are in (or after 6 s) and the app below is wired up
     let tilesReady = false, appReady = false;
     const finishLoading = () => {
@@ -439,8 +469,16 @@
     let nightOn = false, nightLayer = null, nightFade = 0, nightLevel = 0;
     const mixHex = (a, b, k) => '#' + [0, 2, 4].map((i) => Math.round(parseInt(a.slice(1 + i, 3 + i), 16) * (1 - k) + parseInt(b.slice(1 + i, 3 + i), 16) * k).toString(16).padStart(2, '0')).join('');
     // the page backdrop always matches what the map is actually showing (the night layer's live opacity),
-    // so the edges never run ahead of or lag behind the tiles while they cross-fade or load
-    const syncBg = () => { document.body.style.backgroundColor = mixHex(meta.background, nightInfo.background, nightLayer && nightLayer !== 'loading' ? nightLayer.getOpacity() : 0); };
+    // so the edges never run ahead of or lag behind the tiles while they cross-fade or load.
+    // It's set right after OSD paints each frame: setting it from the fade's own rAF ran a frame ahead of the
+    // canvas, so mid-fade the area around the map was visibly lighter/darker than the map's own backdrop.
+    // (--map-night carries the same live value to the sky backdrop)
+    const syncBg = () => {
+      const k = nightLayer && nightLayer !== 'loading' ? nightLayer.getOpacity() : 0;
+      document.body.style.backgroundColor = mixHex(meta.background, nightInfo.background, k);
+      document.documentElement.style.setProperty('--map-night', k.toFixed(3));
+    };
+    if (nightInfo) viewer.addHandler('update-viewport', syncBg);
     // how dark it is, 0 (day) .. 1 (full night). Between, the night map is partly faded in (dusk / dawn).
     function setNightLevel(k, instant) {
       if (!nightInfo) return;
@@ -449,7 +487,7 @@
       if (on !== nightOn || nightLayer == null) setNight(on, k);
       nightLevel = k;
       window.mapLife?.setNightLevel(k);
-      if (nightLayer && nightLayer !== 'loading') { if (instant) { cancelAnimationFrame(nightFade); nightLayer.setOpacity(k); viewer.world.getItemAt(0).setOpacity(k > 0.999 ? 0 : 1); syncBg(); } else fadeNight(k); }
+      if (nightLayer && nightLayer !== 'loading') { if (instant) { cancelAnimationFrame(nightFade); nightLayer.setOpacity(k); viewer.world.getItemAt(0).setOpacity(k > 0.999 ? 0 : 1); } else fadeNight(k); }
     }
     function fadeNight(to) {
       cancelAnimationFrame(nightFade);
@@ -459,7 +497,6 @@
         nightLayer.setOpacity(from + (to - from) * e);
         // with the night map fully over it, hide the day map so no sliver of it shows at the edges
         viewer.world.getItemAt(0).setOpacity(nightLayer.getOpacity() > 0.999 ? 0 : 1);
-        syncBg();
         if (u < 1) nightFade = requestAnimationFrame(tick);
       };
       nightFade = requestAnimationFrame(tick);
@@ -868,6 +905,18 @@
       // (the day map is item 0; before it opens there is nothing to project against)
       imageToScreen: (ix, iy) => { const it = viewer.world.getItemAt(0); if (!it) return [0, 0]; const p = it.imageToViewerElementCoordinates(new OpenSeadragon.Point(ix, iy)); return [p.x, p.y]; },
       screenToImage: (sx, sy) => { const it = viewer.world.getItemAt(0); if (!it) return [0, 0]; const p = it.viewerElementToImageCoordinates(new OpenSeadragon.Point(sx, sy)); return [p.x, p.y]; },
+      // trace the campus ground (the map's diamond) on a canvas, in CSS px times k, for clipping things to the ground
+      groundPath: (g, k = 1) => {
+        const B = life?.bounds;
+        if (!B) return false;
+        g.beginPath();
+        [[B.minX, B.minY], [B.maxX, B.minY], [B.maxX, B.maxY], [B.minX, B.maxY]].forEach(([x, y], i) => {
+          const [sx, sy] = window.app.imageToScreen(...window.app.sceneToImage(x, y));
+          g[i ? 'lineTo' : 'moveTo'](sx * k, sy * k);
+        });
+        g.closePath();
+        return true;
+      },
       // add a round button to the right-hand control bar (above the compass divider)
       addControl: (btn) => { const c = $('controls'), hrs = c.querySelectorAll('hr'); c.insertBefore(btn, hrs[hrs.length - 1]); return btn; },
       // map clicks: a handler returning true swallows the click (no building select)

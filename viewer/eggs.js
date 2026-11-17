@@ -26,17 +26,18 @@ onApp((app) => {
   // MC's long west wall runs about (208, 28) -> (228, -20) in scene metres (from the footprint in meta.json);
   // it faces the camera, so the tie hangs flat against it from just under the roof (MC is ~26 m tall).
   const TIE_U = [0.385, -0.923], TIE_N = [-0.923, -0.385], TIE_C = [218.2, 3.9];
+  const TIE_DROP = 5; // metres below the drawn heights, so the knot sits clear of the roofline
   function drawTie(q, small) {
     const sway = app.reduceMotion ? 0 : Math.sin(tnow() * 0.9) * 0.25;
-    const at = (u, h) => { const s = (25 - h) / 20; return [TIE_C[0] + TIE_U[0] * (u + sway * s * s) , TIE_C[1] + TIE_U[1] * (u + sway * s * s), h]; };
+    const at = (u, h) => { const s = (25 - h) / 20; return [TIE_C[0] + TIE_U[0] * (u + sway * s * s) , TIE_C[1] + TIE_U[1] * (u + sway * s * s), h - TIE_DROP]; };
     const knot = [at(-1.15, 25.3), at(1.15, 25.3), at(0.8, 22.7), at(-0.8, 22.7)];
-    const blade = [at(-0.8, 22.7), at(0.8, 22.7), at(2.0, 9), at(0, 5.8), at(-2.0, 9)];
+    const blade = [at(-0.8, 22.7), at(0.8, 22.7), at(2.0, 10.5), at(0, 7.8), at(-2.0, 10.5)];
     // the wall's own shadow under the tie, so it reads as hanging off the building
     fill(blade.map(([x, y, h]) => [x - TIE_N[0] * 0.05 + 0.25, y - TIE_N[1] * 0.05 - 0.25, h - 0.4]), 'rgba(40,20,30,.22)');
     fill(blade, '#ff5fae');
     if (!small) { // diagonal stripes, clipped to the blade
       ctx.save(); api.poly(blade.map((p) => api.toScreen(...p))); ctx.clip();
-      for (let h = 21.5; h > 5; h -= 2.6) fill([at(-3, h), at(3, h - 1.6), at(3, h - 2.4), at(-3, h - 0.8)], '#e8479a');
+      for (let h = 21.5; h > 7; h -= 2.6) fill([at(-3, h), at(3, h - 1.6), at(3, h - 2.4), at(-3, h - 0.8)], '#e8479a');
       ctx.restore();
     }
     fill(knot, '#f0509f');
