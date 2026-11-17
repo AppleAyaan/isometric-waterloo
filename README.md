@@ -41,9 +41,9 @@ Google's Map Tiles API terms restrict storing and redistributing its imagery. Ch
 `BBOX="south,west,north,east" npm run fetch && npm run scene && npm run export`
 
 ### Fixing building heights
-OSM heights are sometimes missing or wrong. Add overrides to `data/overrides.json`, keyed by building code or OSM id:
+OSM heights and codes are sometimes missing or wrong. Add overrides to `data/overrides.json`, keyed by building code or OSM id, then run `npm run scene && npm run outlines` (no re-render needed unless heights changed):
 ```json
-{ "LIB": { "height": 40 }, "way/123456": { "name": "Better name" } }
+{ "LIB": { "height": 40 }, "way/123456": { "name": "Better name", "ref": "XYZ" } }
 ```
 
 ### Painting in Colab
@@ -51,7 +51,7 @@ OSM heights are sometimes missing or wrong. Add overrides to `data/overrides.jso
 2. Upload `colab/paint_waterloo.ipynb` to Colab (File → Upload notebook) and pick the T4 GPU runtime.
 3. Run the cells in order. The **style test** cell paints one window so you can tune the prompt first. The full run takes about
    1 minute per window (~40 windows at the default scale) and resumes from Drive if Colab disconnects.
-4. Download `map.png` from Drive into `out/`. The viewer picks it up automatically and gets a painted/whitebox toggle.
+4. Download `map.png` from Drive into `out/`. The viewer shows it automatically (it falls back to the whitebox when `map.png` is missing).
 
 The notebook is generated from `colab/make_notebook.py`. Edit that file, then run `npm run notebook`.
 
