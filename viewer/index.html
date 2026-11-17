@@ -60,7 +60,7 @@
     const meta = await (await fetch(OUT + 'meta.json')).json();
     // Layers, best first: AI-painted, Google photorealistic, OSM whitebox.
     const LAYERS = [
-      { id: 'painted', label: 'Painted', file: 'map.png' },
+      { id: 'painted', label: 'Painted', file: 'map.png', credit: 'Painted from imagery © Google' },
       { id: 'photo', label: 'Photo', file: 'photo.png', credit: 'Imagery © Google' },
       { id: 'whitebox', label: 'Whitebox', file: 'render.png' },
     ];
