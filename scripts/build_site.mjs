@@ -38,6 +38,14 @@ const img = decodePNG(fs.readFileSync(mapSrc));
 const { tiles, levels } = buildDZI(img, path.join(SITE, 'out', 'map'));
 fs.writeFileSync(path.join(SITE, 'out', 'layer.json'), JSON.stringify({ painted: path.basename(mapSrc) === 'map.png' }));
 
+// the night map (npm run night), tiled the same way; the viewer only fetches it when night mode is on
+let nightNote = '';
+if (fs.existsSync(path.join(OUT, 'night.png')) && fs.existsSync(path.join(OUT, 'night.json'))) {
+  const n = buildDZI(decodePNG(fs.readFileSync(path.join(OUT, 'night.png'))), path.join(SITE, 'out', 'night'));
+  fs.copyFileSync(path.join(OUT, 'night.json'), path.join(SITE, 'out', 'night.json'));
+  nightNote = `, night map ${n.tiles} tiles`;
+}
+
 // social preview: the middle of campus at 1200x630
 const meta = JSON.parse(fs.readFileSync(path.join(OUT, 'meta.json'), 'utf8'));
 const cw = Math.round(img.width * 0.46), ch = Math.round(cw * 630 / 1200);
@@ -66,10 +74,11 @@ fs.writeFileSync(path.join(SITE, '.nojekyll'), ''); // GitHub Pages: serve map_f
 // Cloudflare Pages / Netlify: tiles never change between builds of the same map, the page and data might
 fs.writeFileSync(path.join(SITE, '_headers'), [
   '/out/map_files/*', '  Cache-Control: public, max-age=604800', '',
+  '/out/night_files/*', '  Cache-Control: public, max-age=604800', '',
   '/sprites/*', '  Cache-Control: public, max-age=604800', '',
   '/*', '  X-Content-Type-Options: nosniff', '  Referrer-Policy: strict-origin-when-cross-origin', '',
 ].join('\n'));
 
 const size = (d) => fs.readdirSync(d, { withFileTypes: true }).reduce((s, e) => s + (e.isDirectory() ? size(path.join(d, e.name)) : fs.statSync(path.join(d, e.name)).size), 0);
-console.log(`site/ ready in ${((Date.now() - t0) / 1000).toFixed(1)}s: ${path.basename(mapSrc)} -> ${levels} levels / ${tiles} tiles, ` +
+console.log(`site/ ready in ${((Date.now() - t0) / 1000).toFixed(1)}s: ${path.basename(mapSrc)} -> ${levels} levels / ${tiles} tiles${nightNote}, ` +
   `${(size(SITE) / 1e6).toFixed(1)} MB total, social image + manifest for ${SITE_URL}`);

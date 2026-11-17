@@ -39,7 +39,7 @@ export function makeProjector(scene, meta) {
 
 // ---------- 2D helpers ----------
 // Sutherland–Hodgman against the bbox (the renderer clips the scene to it too).
-function clipRect(ring, { minX, maxX, minY, maxY }) {
+export function clipRect(ring, { minX, maxX, minY, maxY }) {
   const edges = [
     [(p) => p[0] >= minX, (p, q) => [minX, p[1] + ((q[1] - p[1]) * (minX - p[0])) / (q[0] - p[0])]],
     [(p) => p[0] <= maxX, (p, q) => [maxX, p[1] + ((q[1] - p[1]) * (maxX - p[0])) / (q[0] - p[0])]],
