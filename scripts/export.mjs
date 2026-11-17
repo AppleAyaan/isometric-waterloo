@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import { startServer } from './serve.mjs';
 import { computeOutlines } from './outlines.mjs';
+import { buildTraffic } from './traffic.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
@@ -52,7 +53,9 @@ try {
   write(colourName, res.render);
   write('idmap.png', res.idmap);
   const scene = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/scene.json'), 'utf8'));
-  fs.writeFileSync(path.join(ROOT, 'out/meta.json'), JSON.stringify(computeOutlines(scene, res.meta)));
+  const meta = computeOutlines(scene, res.meta);
+  fs.writeFileSync(path.join(ROOT, 'out/meta.json'), JSON.stringify(meta));
+  fs.writeFileSync(path.join(ROOT, 'out/traffic.json'), JSON.stringify(buildTraffic(scene, meta)));
   console.log(`exported ${res.meta.width}x${res.meta.height}px (${res.meta.buildings.length} buildings) in ${((Date.now() - t0) / 1000).toFixed(1)}s -> out/${colourName}`);
 } finally {
   await browser.close();

@@ -16,7 +16,26 @@
     * { box-sizing: border-box; }
     html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font: 14px/1.4 Inter, system-ui, sans-serif; overflow: hidden; }
     #map { position: fixed !important; top: 0; left: 0; width: 100vw; height: 100vh; height: 100dvh; }
-    #hl { position: fixed; inset: 0; pointer-events: none; }
+    #hl, #veh { position: fixed; inset: 0; pointer-events: none; }
+    #vcards { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+    /* little glass tags that ride along with buses and trains */
+    .chip.vcard {
+      top: 0; left: 0; display: flex; align-items: center; gap: 7px; padding: 4px 9px 4px 4px; border-radius: 11px;
+      white-space: nowrap; pointer-events: none; will-change: transform; transition: opacity .25s;
+      -webkit-backdrop-filter: blur(12px) saturate(170%); backdrop-filter: blur(12px) saturate(170%);
+      box-shadow: 0 4px 14px rgba(70, 55, 25, .18), inset 0 1px 0 rgba(255, 255, 255, .9);
+    }
+    .vcard::after {
+      content: ''; position: absolute; left: 50%; bottom: -5px; width: 8px; height: 8px; transform: translateX(-50%) rotate(45deg);
+      background: var(--glass-strong); border-right: 1px solid var(--edge); border-bottom: 1px solid var(--edge);
+    }
+    .vcard .rb { flex: none; min-width: 26px; padding: 0 5px; border-radius: 7px; color: #fff; text-align: center; font: 10px/19px Silkscreen, monospace; letter-spacing: .2px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35); }
+    .vcard .vt { display: flex; flex-direction: column; line-height: 1.15; }
+    .vcard b { font-size: 11.5px; font-weight: 600; }
+    .vcard small { font-size: 10.5px; color: var(--muted); }
+    .chip.vcard.compact { padding: 3px; border-radius: 9px; }
+    .vcard.compact .vt { display: none; }
+    .vcard.behind { opacity: .55; }
     /* liquid glass: heavy blur + saturation, bright rim, soft inner highlight */
     .chip {
       position: fixed; background: linear-gradient(135deg, var(--glass-strong), var(--glass));
@@ -63,6 +82,8 @@
 </head>
 <body>
   <div id="map"></div>
+  <canvas id="veh"></canvas>
+  <div id="vcards"></div>
   <canvas id="hl"></canvas>
   <div id="title" class="chip">
     <div class="brand">
@@ -74,7 +95,7 @@
     </div>
     <div class="searchbox">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-      <input id="search" placeholder="Find a building (DC, MC, SLC…)" autocomplete="off" aria-label="Find a building">
+      <input id="search" placeholder="Find a building or lot (DC, SLC, Lot C…)" autocomplete="off" aria-label="Find a building">
     </div>
     <ul id="results"></ul>
   </div>
@@ -84,11 +105,13 @@
   <div id="credit" class="chip">Map data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a></div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.1/openseadragon.min.js"></script>
+  <script src="traffic.js"></script>
   <script>
   (async () => {
     const OUT = new URL('../out/', location.href).href;
     const exists = async (u) => { try { return (await fetch(u, { method: 'HEAD' })).ok; } catch { return false; } };
     const meta = await (await fetch(OUT + 'meta.json')).json();
+    const life = await fetch(OUT + 'traffic.json').then((r) => (r.ok ? r.json() : null)).catch(() => null);
     // One layer: the AI-painted map, falling back to the OSM whitebox if it hasn't been painted yet.
     const layer = (await exists(OUT + 'map.png'))
       ? { file: 'map.png', credit: 'Painted from imagery © Google' }
@@ -98,7 +121,7 @@
       element: document.getElementById('map'),
       tileSources: { type: 'image', url: OUT + layer.file },
       showNavigationControl: false, imageSmoothingEnabled: false,
-      maxZoomPixelRatio: 6, visibilityRatio: 0.6, constrainDuringPan: true,
+      maxZoomPixelRatio: 2, visibilityRatio: 0.6, constrainDuringPan: true,
       gestureSettingsMouse: { clickToZoom: false },
       animationTime: 0.6, springStiffness: 9,
     });
@@ -125,6 +148,22 @@
       if (idData[i + 2] < 128) return null;
       return byId.get(idData[i] + idData[i + 1] * 256) || null;
     }
+
+    // ---- simulated life: traffic, ION + crossings, students, geese, parking labels ----
+    const occluded = (ix, iy) => {
+      const x = Math.floor(ix / D), y = Math.floor(iy / D);
+      return x >= 0 && y >= 0 && x < idc.width && y < idc.height && idData[(y * idc.width + x) * 4 + 2] >= 128;
+    };
+    if (life) {
+      try { startTraffic({ viewer, data: life, occluded, canvas: document.getElementById('veh'), cardLayer: document.getElementById('vcards') }); }
+      catch (e) { console.warn('traffic disabled:', e); }
+    }
+
+    // ---- named parking lots: hover/select them like buildings (ground-level outlines) ----
+    const lots = (life?.parking || []).map((l) => ({ ...l, kind: 'parking', ref: null, outlines: [l.outline] }));
+    const inRing = (x, y, r) => { let c = false; for (let i = 0, j = r.length - 1; i < r.length; j = i++) { const [xi, yi] = r[i], [xj, yj] = r[j]; if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) c = !c; } return c; };
+    const lotAt = (ix, iy) => lots.find((l) => inRing(ix, iy, l.outline)) || null;
+    const thingAt = (ix, iy) => buildingAt(ix, iy) || lotAt(ix, iy);
 
     // ---- highlight overlay ----
     const hl = document.getElementById('hl');
@@ -156,7 +195,7 @@
 
     const label = (b) => (b.ref ? `<span class="code">${esc(b.ref)}</span>` : '') + esc(b.name || prettyKind(b.kind));
     const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-    const prettyKind = (k) => ({ yes: 'Building', university: 'University building', dormitory: 'Residence', apartments: 'Apartments', house: 'House', retail: 'Shop', part: 'Building' }[k] || (k ? k[0].toUpperCase() + k.slice(1).replace(/_/g, ' ') : 'Building'));
+    const prettyKind = (k) => ({ yes: 'Building', university: 'University building', dormitory: 'Residence', apartments: 'Apartments', house: 'House', retail: 'Shop', part: 'Building', parking: 'Parking lot' }[k] || (k ? k[0].toUpperCase() + k.slice(1).replace(/_/g, ' ') : 'Building'));
 
     const tip = document.getElementById('tip');
     new OpenSeadragon.MouseTracker({
@@ -165,7 +204,7 @@
         const item = viewer.world.getItemAt(0);
         if (!item) return;
         const ip = item.viewerElementToImageCoordinates(e.position);
-        const b = buildingAt(ip.x, ip.y);
+        const b = thingAt(ip.x, ip.y);
         if (b !== hover) { hover = b; draw(); }
         viewer.canvas.style.cursor = b ? 'pointer' : '';
         if (b && e.pointerType === 'mouse') {
@@ -181,7 +220,7 @@
       if (!e.quick) return;
       const item = viewer.world.getItemAt(0);
       const ip = item.viewerElementToImageCoordinates(e.position);
-      select(buildingAt(ip.x, ip.y), false);
+      select(thingAt(ip.x, ip.y), false);
     });
 
     const card = document.getElementById('card');
@@ -193,7 +232,8 @@
       const rows = [
         ['Type', prettyKind(b.kind)],
         b.levels ? ['Storeys', b.levels] : null,
-        ['Height', `~${Math.round(b.height)} m`],
+        b.kind === 'parking' ? (b.access ? ['Access', esc(b.access)] : null) : ['Height', `~${Math.round(b.height)} m`],
+        b.kind === 'parking' && b.area ? ['Size', `~${Math.round(b.area / 100) * 100} m²`] : null,
         b.address ? ['Address', esc(b.address)] : null,
         b.operator ? ['Operator', esc(b.operator)] : null,
         b.osm ? ['Source', `<a href="https://www.openstreetmap.org/${b.osm}" target="_blank" rel="noopener">OpenStreetMap</a>`] : null,
@@ -212,7 +252,7 @@
     }
 
     // ---- search ----
-    const named = meta.buildings.filter((b) => b.name || b.ref);
+    const named = [...meta.buildings.filter((b) => b.name || b.ref), ...lots];
     const search = document.getElementById('search'), results = document.getElementById('results');
     let hits = [], active = 0;
     function renderResults() {

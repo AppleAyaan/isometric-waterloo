@@ -1,3 +1,23 @@
 {
-  "way/1342934521": { "ref": "M3" }
+  "way/1342934521": {"ref": "M3"},
+  "way/39606008": {"name": "University Plaza"},
+  "way/39606010": {"name": "University Plaza"},
+  "way/39606016": {"name": "University Plaza"},
+  "way/39606036": {"name": "University Plaza"},
+  "way/39606038": {"name": "University Plaza"},
+  "way/39606039": {"name": "University Plaza"},
+  "way/39606041": {"name": "University Plaza"},
+  "way/39606042": {"name": "University Plaza"},
+  "way/39606043": {"name": "University Plaza"},
+  "way/39606047": {"name": "University Plaza"},
+  "way/39606049": {"name": "University Plaza"},
+  "way/39606050": {"name": "University Plaza"},
+  "way/39606053": {"name": "University Plaza"},
+  "way/520926519": {"name": "University Plaza"},
+  "way/1285259162": {"name": "University Plaza"},
+  "way/1285259163": {"name": "University Plaza"},
+  "way/1285660152": {"name": "University Plaza"},
+  "way/1389151534": {"name": "University Plaza"},
+  "way/1389151535": {"name": "University Plaza"},
+  "way/1538000962": {"name": "University Plaza"}
 }
