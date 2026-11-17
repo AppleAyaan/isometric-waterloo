@@ -66,7 +66,9 @@ The moon button (or `N`) cross-fades to `out/night.png`, a pre-lit copy of the p
 - every camera-facing wall gets a window grid from its OSM height and levels, and a hash per room decides which are lit and how warm. A depth buffer of the extruded buildings keeps windows only where the wall is actually in front. Dana Porter, DC, MC, SLC and the residences stay busier than offices and houses (`BUSY` in `scripts/night.mjs`);
 - sodium-yellow lights along the roads, warm LEDs along paths and in parking lots throw pools that multiply the painted ground, with posts and soft bloom.
 
-The viewer only downloads the night map the first time someone turns it on. Vehicles get headlight beams, tail lights and lit cabins. `?night` in the URL opens straight into night mode. Re-run `npm run night` whenever `map.png`, the scene or heights change.
+Night mode follows the live time in Waterloo: a clock centred at the top shows the local time (EST/EDT) and when the lights next change. Lights come on at dusk (sun 3° below the horizon, computed in the browser) and go off at dawn. The moon button flips it until the next dusk or dawn, and *Follow live* goes back to the clock. `?night` / `?day` in the URL pin it for one visit.
+
+The viewer only downloads the night map the first time someone turns it on. Vehicles get headlight beams, tail lights and lit cabins. Re-run `npm run night` whenever `map.png`, the scene or heights change.
 
 ### Fixing building heights
 OSM heights and codes are sometimes missing or wrong. Add overrides to `data/overrides.json`, keyed by building code or OSM id, then run `npm run scene && npm run outlines` (no re-render needed unless heights changed):
