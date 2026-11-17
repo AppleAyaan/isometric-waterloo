@@ -29,18 +29,27 @@
       --glass: rgba(255, 252, 245, .42); --glass-strong: rgba(255, 252, 245, .62); --edge: rgba(255, 255, 255, .7);
       --shadow: 0 10px 34px rgba(70, 55, 25, .18), 0 1px 3px rgba(70, 55, 25, .12);
       --safe-b: env(safe-area-inset-bottom, 0px); --safe-t: env(safe-area-inset-top, 0px);
+      /* design system. Every floating card is one liquid-glass .chip in one of two shapes:
+         panels (title, building / egg / follow / walk cards, help): --r-panel, padded --sp-4
+         bars (clock, event card, controls, time-lapse, toast, tip, feedback): --r-bar
+         Inside them: controls and buttons --r-ctl, tags and badges --r-tag; icons 16px (14px in bars) in --gold-deep;
+         type: --fs-title for card titles, --fs-body, --fs-meta for secondary lines, --fs-label for small caps kickers. */
+      --r-panel: 20px; --r-bar: 16px; --r-ctl: 11px; --r-tag: 7px;
+      --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px;
+      --fs-title: 15.5px; --fs-body: 13px; --fs-meta: 12px; --fs-label: 10.5px;
+      --hover: rgba(255, 255, 255, .65); --sheen: rgba(255, 255, 255, .55); --hairline: rgba(120, 100, 60, .16);
     }
     /* night mode: dark violet glass over the night map */
     :root[data-night] {
       --ink: #eeeaf8; --muted: #a9a3c4; --gold-deep: #f4c43a;
       --glass: rgba(28, 24, 52, .46); --glass-strong: rgba(36, 31, 66, .7); --edge: rgba(190, 175, 255, .2);
       --shadow: 0 10px 34px rgba(5, 3, 20, .45), 0 1px 3px rgba(5, 3, 20, .35);
+      --hover: rgba(255, 255, 255, .12); --sheen: rgba(255, 255, 255, .1); --hairline: rgba(255, 255, 255, .12);
     }
     :root[data-night] .chip { box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 255, 255, .12); }
     :root[data-night] .chip.vcard { box-shadow: 0 4px 14px rgba(5, 3, 20, .4), inset 0 1px 0 rgba(255, 255, 255, .12); }
     :root[data-night] .btn, :root[data-night] #search, :root[data-night] kbd { background: rgba(255, 255, 255, .07); border-color: rgba(255, 255, 255, .13); }
-    :root[data-night] .btn:hover, :root[data-night] #results li:hover, :root[data-night] #results li.active,
-    :root[data-night] #controls button:hover, :root[data-night] #feedback:hover, :root[data-night] #card .x:hover, :root[data-night] #help .x:hover { background: rgba(255, 255, 255, .12); }
+    :root[data-night] .btn:hover, :root[data-night] #results li:hover, :root[data-night] #results li.active { background: var(--hover); }
     :root[data-night] .btn.on { background: var(--gold); border-color: var(--gold); color: #1f1c17; }
     :root[data-night] #search::placeholder { color: #8f89aa; }
     :root[data-night] #help .chip { background: rgba(30, 26, 54, .94); }
@@ -78,11 +87,19 @@
     /* liquid glass: heavy blur + saturation, bright rim, soft inner highlight */
     .chip {
       position: fixed; background: linear-gradient(135deg, var(--glass-strong), var(--glass));
-      border: 1px solid var(--edge); border-radius: 18px; box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 255, 255, .9), inset 0 -1px 0 rgba(120, 100, 60, .08);
+      border: 1px solid var(--edge); border-radius: var(--r-bar); box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 255, 255, .9), inset 0 -1px 0 rgba(120, 100, 60, .08);
       -webkit-backdrop-filter: blur(22px) saturate(180%); backdrop-filter: blur(22px) saturate(180%);
     }
+    /* the glass catches light along its top edge */
+    .chip:not(.vcard)::before { content: ''; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none; background: linear-gradient(180deg, var(--sheen), transparent 38%); }
     @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .chip { background: rgba(255, 252, 245, .94); } }
-    #title { top: calc(16px + var(--safe-t)); left: 16px; padding: 14px; display: flex; flex-direction: column; gap: 10px; width: 320px; max-width: calc(100vw - 32px); z-index: 3; }
+    /* shared pieces */
+    #title, #card, #help .chip { border-radius: var(--r-panel); }
+    .chip .x { position: absolute; top: 10px; right: 10px; width: 28px; height: 28px; display: grid; place-items: center; border-radius: var(--r-ctl); background: none; border: 0; color: var(--muted); font-size: 20px; line-height: 1; cursor: pointer; transition: background .15s; }
+    .chip .x:hover { background: var(--hover); color: var(--ink); }
+    .chip h2 { font-size: var(--fs-title); font-weight: 600; line-height: 1.25; letter-spacing: -.1px; }
+    .kick { display: flex; align-items: center; gap: 6px; font-size: var(--fs-label); font-weight: 600; letter-spacing: .6px; text-transform: uppercase; color: var(--muted); }
+    #title { top: calc(16px + var(--safe-t)); left: 16px; padding: var(--sp-4); display: flex; flex-direction: column; gap: 10px; width: 320px; max-width: calc(100vw - 32px); z-index: 3; }
     .brand { display: flex; align-items: center; gap: 12px; }
     .brand img { width: 44px; height: 44px; object-fit: contain; flex: none; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .15)); }
     .brand h1 { margin: 0; font: 17px/1.15 Silkscreen, monospace; letter-spacing: .3px; color: var(--ink); }
@@ -96,7 +113,7 @@
     .searchbox:focus-within kbd { display: none; }
     kbd { display: inline-block; min-width: 20px; padding: 0 5px; border-radius: 6px; border: 1px solid rgba(120, 100, 60, .2); border-bottom-width: 2px; background: rgba(255, 255, 255, .6); color: var(--muted); font: 11px/17px Inter, system-ui, sans-serif; text-align: center; }
     #search {
-      width: 100%; padding: 9px 34px 9px 33px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, .8);
+      width: 100%; padding: 9px 34px 9px 33px; border-radius: var(--r-ctl); border: 1px solid rgba(255, 255, 255, .8);
       background: rgba(255, 255, 255, .55); color: var(--ink); font: inherit; outline: none;
       box-shadow: inset 0 1px 2px rgba(70, 55, 25, .08); -webkit-appearance: none; appearance: none;
     }
@@ -115,7 +132,7 @@
     #results li.hd:hover { background: none; }
     .actions { display: flex; gap: 8px; }
     .btn {
-      display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 7px 11px; border-radius: 11px; cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 7px 11px; border-radius: var(--r-ctl); cursor: pointer;
       border: 1px solid rgba(255, 255, 255, .8); background: rgba(255, 255, 255, .45); font-size: 13px; font-weight: 500; text-decoration: none; color: var(--ink);
       transition: background .15s, transform .1s;
     }
@@ -125,51 +142,57 @@
     .btn.on { background: var(--gold); border-color: var(--gold); }
     .btn.on svg { color: var(--ink); }
     .actions .btn { flex: 1; }
-    .code { display: inline-block; padding: 0 6px; margin-right: 7px; border-radius: 6px; background: var(--gold); color: #1f1c17; font: 11px/18px Silkscreen, monospace; vertical-align: 1px; }
-    #tip { position: fixed; pointer-events: none; padding: 6px 10px; font-size: 13px; display: none; white-space: nowrap; z-index: 5; border-radius: 12px; }
-    #card { right: 16px; bottom: calc(40px + var(--safe-b)); width: 310px; max-width: calc(100vw - 32px); padding: 16px 18px; display: none; z-index: 3; }
+    .code { display: inline-block; padding: 0 6px; margin-right: 7px; border-radius: var(--r-tag); background: var(--gold); color: #1f1c17; font: 11px/18px Silkscreen, monospace; vertical-align: 1px; }
+    #tip { position: fixed; pointer-events: none; padding: 6px 11px; font-size: var(--fs-body); display: none; white-space: nowrap; z-index: 5; border-radius: var(--r-ctl); }
+    #card { right: 16px; bottom: calc(40px + var(--safe-b)); width: 310px; max-width: calc(100vw - 32px); padding: var(--sp-4); display: none; z-index: 3; }
     #card.show { display: block; animation: rise .22s ease-out; }
     @keyframes rise { from { opacity: 0; transform: translateY(8px); } }
-    #card h2 { margin: 6px 28px 2px 0; font-size: 16px; line-height: 1.25; }
-    #card dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; margin: 10px 0 0; font-size: 13px; }
+    #card h2 { margin: 6px 28px 2px 0; }
+    #card dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; margin: 10px 0 0; font-size: var(--fs-meta); }
     #card dt { color: var(--muted); }
     #card dd { margin: 0; }
     #card a { color: var(--ink); text-decoration-color: var(--gold); text-decoration-thickness: 2px; }
-    #card .x { position: absolute; top: 8px; right: 10px; width: 28px; height: 28px; border-radius: 9px; background: none; border: 0; color: var(--muted); font-size: 20px; line-height: 1; cursor: pointer; }
-    #card .x:hover { background: rgba(255, 255, 255, .6); color: var(--ink); }
     #card .actions { margin-top: 14px; }
     #card .actions .btn { padding: 6px 8px; font-size: 12.5px; }
-    #controls { right: 16px; top: calc(16px + var(--safe-t)); padding: 5px; border-radius: 15px; display: flex; flex-direction: column; gap: 2px; z-index: 2; }
-    #controls button { width: 36px; height: 36px; border: 0; border-radius: 10px; background: none; cursor: pointer; display: grid; place-items: center; color: var(--ink); transition: background .15s; }
-    #controls button:hover { background: rgba(255, 255, 255, .7); }
+    #controls { right: 16px; top: calc(16px + var(--safe-t)); padding: 5px; display: flex; flex-direction: column; gap: 2px; z-index: 2; }
+    #controls button { width: 36px; height: 36px; border: 0; border-radius: var(--r-ctl); background: none; cursor: pointer; display: grid; place-items: center; color: var(--ink); transition: background .15s; }
+    #controls button:hover { background: var(--hover); }
     #controls button.on { color: var(--gold-deep); }
     #controls button svg { width: 18px; height: 18px; }
-    #controls hr { width: 22px; margin: 3px auto; border: 0; border-top: 1px solid rgba(120, 100, 60, .18); }
+    #controls hr { width: 22px; margin: 3px auto; border: 0; border-top: 1px solid var(--hairline); }
     #compass { width: 36px; height: 36px; display: grid; place-items: center; }
     #compass svg { width: 26px; height: 26px; transition: transform .3s; }
-    #credit { right: 16px; bottom: calc(10px + var(--safe-b)); padding: 3px 10px; font-size: 11px; color: var(--muted); border-radius: 8px; }
+    #credit { right: 16px; bottom: calc(10px + var(--safe-b)); padding: 3px 10px; font-size: 11px; color: var(--muted); border-radius: var(--r-tag); }
     #credit a { color: var(--muted); }
-    #feedback { left: 16px; bottom: calc(10px + var(--safe-b)); padding: 7px 13px; border-radius: 12px; color: var(--ink); font-size: 13px; font-weight: 500; text-decoration: none; display: flex; align-items: center; gap: 7px; }
-    #feedback:hover { background: rgba(255, 255, 255, .7); }
+    #feedback { left: 16px; bottom: calc(10px + var(--safe-b)); padding: 7px 13px; border-radius: var(--r-ctl); color: var(--ink); font-size: 13px; font-weight: 500; text-decoration: none; display: flex; align-items: center; gap: 7px; }
+    #feedback:hover { background: var(--hover); }
     #feedback svg { width: 15px; height: 15px; color: var(--gold-deep); }
-    /* live Waterloo clock, centred at the top */
-    #clock { top: calc(16px + var(--safe-t)); left: 50%; transform: translateX(-50%); z-index: 2; padding: 6px 7px 6px 13px; border-radius: 14px; display: flex; align-items: center; gap: 10px; white-space: nowrap; }
+    /* live Waterloo clock, centred at the top: time, then compact icon + value pairs (details in the tooltip) */
+    #clock { top: calc(16px + var(--safe-t)); left: 50%; transform: translateX(-50%); z-index: 2; padding: 7px 8px 7px 12px; display: flex; align-items: center; gap: 10px; white-space: nowrap; }
     #clock .ic { width: 18px; height: 18px; flex: none; color: var(--gold-deep); }
     #clock .ic .moon, :root[data-night] #clock .ic .sun { display: none; }
     :root[data-night] #clock .ic .moon { display: inline; }
-    #clock .tx { display: flex; flex-direction: column; line-height: 1.15; }
-    #clock b { font: 600 15px/1.15 Inter, system-ui, sans-serif; font-variant-numeric: tabular-nums; letter-spacing: .2px; }
-    #clock small { color: var(--muted); font-size: 11px; }
-    #clock .live { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #3fbf6a; margin-right: 5px; vertical-align: 1px; box-shadow: 0 0 0 0 rgba(63, 191, 106, .6); animation: pulse 2s infinite; }
+    #clock .tx { display: flex; align-items: center; gap: 12px; }
+    #clock b#clocktime { font: 600 15px/1 Inter, system-ui, sans-serif; font-variant-numeric: tabular-nums; letter-spacing: .1px; }
+    #clock .meta { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: var(--fs-meta); font-variant-numeric: tabular-nums; }
+    #clock .meta > * { display: inline-flex; align-items: center; gap: 4px; }
+    #clock .meta > * + *::before { content: ''; width: 1px; height: 12px; margin-right: 8px; background: var(--hairline); }
+    #clock .meta svg { width: 14px; height: 14px; flex: none; color: var(--gold-deep); }
+    #clock .meta b { font-weight: 600; color: var(--ink); }
+    #clock .live { width: 7px; height: 7px; border-radius: 50%; background: #3fbf6a; box-shadow: 0 0 0 0 rgba(63, 191, 106, .6); animation: pulse 2s infinite; }
     @keyframes pulse { 70% { box-shadow: 0 0 0 5px rgba(63, 191, 106, 0); } 100% { box-shadow: 0 0 0 0 rgba(63, 191, 106, 0); } }
-    #clock .auto { display: none; padding: 4px 9px; font-size: 12px; }
+    #clock .auto { display: none; padding: 4px 9px; font-size: var(--fs-meta); }
+    #clock .auto svg { width: 13px; height: 13px; }
     #clock.manual .auto { display: inline-flex; }
-    #clock.manual .live { background: var(--muted); animation: none; }
-    #clock:not(.manual) { padding-right: 13px; }
+    #clock.manual .live { display: none; }
+    #clock:not(.manual) { padding-right: 14px; }
     /* on narrow screens there is no room between the title and the controls: the clock joins the title card */
     #title #clock { position: static; transform: none; padding: 0; background: none; border: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; border-radius: 0; }
-    #title #clock b { font-size: 13.5px; }
-    #toast { left: 50%; bottom: calc(64px + var(--safe-b)); transform: translate(-50%, 10px); padding: 8px 14px; border-radius: 12px; font-size: 13px; font-weight: 500; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 10; white-space: nowrap; }
+    #title #clock b#clocktime { font-size: 13.5px; }
+    #title #clock .meta { gap: 9px; } #title #clock .meta > * + *::before { margin-right: 5px; }
+    #title #clock { gap: 8px; } #title #clock .tx { gap: 9px; }
+    #title #clock .auto { font-size: 0; gap: 0; padding: 6px; margin-left: auto; } #title #clock .auto svg { width: 14px; height: 14px; }
+    #toast { left: 50%; bottom: calc(64px + var(--safe-b)); transform: translate(-50%, 10px); padding: 8px 14px; border-radius: var(--r-bar); font-size: var(--fs-body); font-weight: 500; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 10; white-space: nowrap; }
     #toast.show { opacity: 1; transform: translate(-50%, 0); }
     /* loading screen */
     /* the loader keeps the day palette: night mode can switch on while it's still up (after dusk), which would
@@ -194,13 +217,11 @@
     dialog[open] { animation: rise .2s ease-out; }
     #help .chip { position: relative; padding: 22px 24px; overflow: auto; max-height: calc(100dvh - 48px); background: rgba(255, 252, 245, .9); }
     #help h2 { margin: 0 0 6px; font: 17px/1.2 Silkscreen, monospace; }
-    #help h3 { margin: 18px 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); }
+    #help h3 { margin: 18px 0 6px; font-size: var(--fs-label); font-weight: 600; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); }
     #help p { margin: 6px 0; }
     #help a { color: var(--ink); text-decoration-color: var(--gold); text-decoration-thickness: 2px; }
     #help table { border-collapse: collapse; font-size: 13px; }
     #help td { padding: 3px 14px 3px 0; vertical-align: top; }
-    #help .x { position: absolute; top: 10px; right: 12px; width: 30px; height: 30px; border-radius: 9px; border: 0; background: none; font-size: 22px; color: var(--muted); cursor: pointer; }
-    #help .x:hover { background: rgba(255, 255, 255, .7); color: var(--ink); }
     #help .stats { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
     #help .stats span { padding: 3px 9px; border-radius: 99px; background: rgba(254, 211, 76, .35); font-size: 12px; font-weight: 500; }
     .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
@@ -268,8 +289,8 @@
 
   <div id="clock" class="chip" role="status" aria-live="off" title="Live time in Waterloo. Night mode follows the sun.">
     <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g class="sun"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></g><path class="moon" d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>
-    <div class="tx"><b id="clocktime">--:--</b><small><span class="live"></span><span id="clocksub">Waterloo</span></small></div>
-    <button class="btn auto" id="clockauto" title="Go back to following the sun in Waterloo">Follow live</button>
+    <div class="tx"><b id="clocktime">--:--</b><span class="live" title="Live"></span><span class="meta"><span id="clocksub"></span></span></div>
+    <button class="btn auto" id="clockauto" title="Go back to live Waterloo time"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg>Live</button>
   </div>
   <div id="tip" class="chip"></div>
   <div id="card" class="chip" role="region" aria-live="polite" aria-label="Selected building"><button class="x" aria-label="Close" title="Close (Esc)">×</button><div id="cardBody"></div></div>
@@ -568,6 +589,14 @@
     const fmtTZ = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, timeZoneName: 'short' });
     const tzName = (t) => fmtTZ.formatToParts(t).find((p) => p.type === 'timeZoneName')?.value || '';
     const clockEl = $('clock'), clockTime = $('clocktime'), clockSub = $('clocksub');
+    const svgIc = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+    const CLOCK_IC = {
+      set: svgIc('<path d="M17 18a5 5 0 0 0-10 0"/><path d="M12 9V2M8.5 5.5 12 9l3.5-3.5"/><path d="M2 22h20M4.2 13.2l1.4 1.4M18.4 14.6l1.4-1.4M1 18h2M21 18h2"/>'),
+      rise: svgIc('<path d="M17 18a5 5 0 0 0-10 0"/><path d="M12 2v7M8.5 5.5 12 2l3.5 3.5"/><path d="M2 22h20M4.2 13.2l1.4 1.4M18.4 14.6l1.4-1.4M1 18h2M21 18h2"/>'),
+      pin: svgIc('<path d="M12 17v5"/><path d="M9 10.8V4h6v6.8l3 3.2H6z"/>'),
+      travel: svgIc('<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/>'),
+      fast: svgIc('<path d="m13 19 9-7-9-7z"/><path d="m2 19 9-7-9-7z"/>'),
+    };
     // A manual flip holds until the next dusk or dawn, then live time takes over again.
     // ?night / ?day in the URL pin it for this visit.
     const params = new URLSearchParams(location.search);
@@ -579,15 +608,20 @@
       if (manualUntil !== Infinity && manualUntil && now.getTime() >= manualUntil) { manualUntil = 0; store.set('nightManualUntil', '0'); }
       const manual = now.getTime() < manualUntil;
       clockTime.textContent = fmtTime.format(now).replace(/\s?([ap])\.?m\.?/i, (_, x) => ' ' + x.toUpperCase() + 'M');
-      const next = nextChange(now), dark = isDark(now);
-      clockSub.textContent = manual
-        ? (manualValue ? 'Night mode' : 'Day mode') + ' · your pick'
-        : `Waterloo ${tzName(now)} · ${dark ? 'sunrise' : 'dusk'} ${fmtTime.format(next).replace(/\s?([ap])\.?m\.?/i, (_, x) => ' ' + x.toUpperCase() + 'M')}`;
+      const next = nextChange(now), dark = isDark(now), nextAt = fmtTime.format(next).replace(/\s?([ap])\.?m\.?/i, (_, x) => ' ' + x.toUpperCase() + 'M');
+      // icon + value; the words go in the tooltip
+      clockSub.innerHTML = manual ? `${CLOCK_IC.pin}${manualValue ? 'Night' : 'Day'}` : `${dark ? CLOCK_IC.rise : CLOCK_IC.set}${nextAt.replace(/ ([AP]M)/, '<small>&nbsp;$1</small>')}`;
+      clockEl.title = manual
+        ? `${manualValue ? 'Night' : 'Day'} mode, your pick (until the next ${dark ? 'sunrise' : 'dusk'}). Waterloo time.`
+        : `Live Waterloo time (${tzName(now)}). ${dark ? 'Sunrise' : 'Dusk'} at ${nextAt}: night mode follows the sun.`;
       clockEl.classList.toggle('manual', manual);
       // safe mid-load: the fade-in goes to whatever is current
       const manualNow = simClock.live && now.getTime() < manualUntil;
       if (nightInfo) setNightLevel(manualNow ? (manualValue ? 1 : 0) : nightLevelFor(now), !simClock.live);
-      if (!simClock.live) clockSub.textContent = (simClock.rate > 1 ? 'Time-lapse' : 'Time travel') + ' · ' + fmtDay.format(now);
+      if (!simClock.live) {
+        clockSub.innerHTML = `${simClock.rate > 1 ? CLOCK_IC.fast : CLOCK_IC.travel}${fmtDay.format(now)}`;
+        clockEl.title = `${simClock.rate > 1 ? 'Time-lapse' : 'Time travel'}: ${fmtDay.format(now)}, Waterloo time`;
+      }
       clockEl.classList.toggle('manual', manual || !simClock.live);
       if (window.app) for (const fn of app.tickers) try { fn(now); } catch (e) { console.error(e); }
     }
