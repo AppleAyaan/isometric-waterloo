@@ -69,7 +69,14 @@ PRESETS = {
     "pixel art": dict(INPUT="render.png"),  # the values above; paints the OSM whitebox, no Google key needed
     # Pixel art over the Google photo render: real roofs, colours and materials, like isometric.nyc.
     # Lower STRENGTH keeps more of the real building; higher looks more like pixel art.
-    "photo pixel art": dict(INPUT="photo.png", STRENGTH=0.5, CONTROL_SCALE=0.6),
+    # The pixel-art LoRA paints chunky ~8px blocks at full weight, which wipes out building detail. So here it is
+    # only a light nudge; the crisp small pixels come from PIXEL_SIZE + PALETTE_COLORS in post-processing.
+    "photo pixel art": dict(INPUT="photo.png", STRENGTH=0.4, CONTROL_SCALE=0.75, LORA_SCALE=0.3, GUIDANCE=5.5,
+                            PIXEL_SIZE=2, PALETTE_COLORS=128,
+                            PROMPT="detailed isometric pixel art of a university campus, 90s city builder game, small crisp pixels, "
+                                   "faithful real colors, clear building shapes with windows and rooftops, round trees, clean roads",
+                            NEGATIVE="large pixels, blocky, low resolution, mosaic, blurry, smudged, melted buildings, purple tint, "
+                                     "text, watermark, people, fisheye"),
 }
 for key, values in PRESETS.items():
     if STYLE.startswith(key):
@@ -137,6 +144,16 @@ def canny(img):
     e = cv2.Canny(cv2.cvtColor(img, cv2.COLOR_RGB2GRAY), 60, 160)
     return Image.fromarray(np.stack([e] * 3, -1))
 
+def finish(img):
+    \"\"\"Post-processing for crisp pixel art: snap to a PIXEL_SIZE grid and a PALETTE_COLORS palette.\"\"\"
+    img = Image.fromarray(img) if isinstance(img, np.ndarray) else img
+    w, h = img.size
+    if PIXEL_SIZE > 1:
+        img = img.resize((w // PIXEL_SIZE, h // PIXEL_SIZE), Image.BOX).resize((w, h), Image.NEAREST)
+    if PALETTE_COLORS > 0:
+        img = img.quantize(PALETTE_COLORS, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE).convert("RGB")
+    return np.array(img)
+
 def paint_window(canvas, painted, x, y, seed):
     \"\"\"Inpaints the unpainted part of the 1024px window at (x, y). Returns True if anything was painted.\"\"\"
     S = 2 * T
@@ -173,7 +190,11 @@ t0 = time.time()
 paint_window(tc, tp, *busiest, SEED)
 print(f"window {busiest} painted in {time.time() - t0:.0f}s. Estimated full run: ~{(time.time() - t0) * len(windows) / 60:.0f} min")
 x, y = busiest
-display(Image.fromarray(np.concatenate([render[y:y + 2 * T, x:x + 2 * T], tc[y:y + 2 * T, x:x + 2 * T]], 1)).resize((1400, 700)))
+before, after = render[y:y + 2 * T, x:x + 2 * T], finish(tc[y:y + 2 * T, x:x + 2 * T])  # same post-processing as the final map
+print("left: input | right: final look")
+display(Image.fromarray(np.concatenate([before, after], 1)).resize((1400, 700)))
+print("1:1 close-up (how it looks fully zoomed in):")
+display(Image.fromarray(np.concatenate([before[256:640, 256:640], after[256:640, 256:640]], 1)))
 """)
 
 code("""
@@ -200,12 +221,7 @@ print("all windows painted")
 
 code("""
 # @title 8. Finish: pixelate, restore background, save map.png
-final = Image.fromarray(canvas)
-if PIXEL_SIZE > 1:
-    final = final.resize((W // PIXEL_SIZE, H // PIXEL_SIZE), Image.BOX).resize((W, H), Image.NEAREST)
-if PALETTE_COLORS > 0:
-    final = final.quantize(PALETTE_COLORS, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE).convert("RGB")
-final = np.array(final)
+final = finish(canvas)
 final[is_bg] = bg  # keep the clean diorama edge
 Image.fromarray(final).save(f"{WORK}/map.png", optimize=True)
 display(Image.fromarray(final).resize((W // 4, H // 4)))
