@@ -60,13 +60,18 @@ The viewer animates cars, GRT/GO buses, ION trains, students on the fields by CI
 
 Buses and trains are textured with perspective-corrected photos from Wikimedia Commons in `viewer/sprites/` (sources and licences in `viewer/sprites/CREDITS.md`); a vehicle falls back to its painted livery if an image is missing.
 
+### Walking directions
+Select a building, press **Walk from here**, then pick a destination: the viewer draws the shortest walk on campus paths (dashes outdoors, dots for indoor or covered stretches) with distance and time at 1.3 m/s, and an *Indoors where possible* toggle that favours UW's tunnels, bridges and corridors. Routes share as `#route/DC/SLC` (`/indoors` appended for the indoor preference). `npm run walk` builds `out/walk.json` (pedestrian graph + building entrances from OSM, ~160 KB) from `data/osm_raw.json`, `data/scene.json` and `out/meta.json`; without it the feature hides.
+
 ### Night on campus
 The moon button (or `N`) cross-fades to `out/night.png`, a pre-lit copy of the painted map baked by `npm run night` (pure Node, ~25 s):
 - the paint is graded to moonlight (darker, cooler, a little desaturated, violet shadows);
 - every camera-facing wall gets a window grid from its OSM height and levels, and a hash per room decides which are lit and how warm. A depth buffer of the extruded buildings keeps windows only where the wall is actually in front. Dana Porter, DC, MC, SLC and the residences stay busier than offices and houses (`BUSY` in `scripts/night.mjs`);
 - sodium-yellow lights along the roads, warm LEDs along paths and in parking lots throw pools that multiply the painted ground, with posts and soft bloom.
 
-The viewer only downloads the night map the first time someone turns it on. Vehicles get headlight beams, tail lights and lit cabins. `?night` in the URL opens straight into night mode. Re-run `npm run night` whenever `map.png`, the scene or heights change.
+Night mode follows the live time in Waterloo: a clock centred at the top shows the local time (EST/EDT) and when the lights next change. Lights come on at dusk (sun 3° below the horizon, computed in the browser) and go off at dawn. The moon button flips it until the next dusk or dawn, and *Follow live* goes back to the clock. `?night` / `?day` in the URL pin it for one visit.
+
+The viewer only downloads the night map the first time someone turns it on. Vehicles get headlight beams, tail lights and lit cabins. Re-run `npm run night` whenever `map.png`, the scene or heights change.
 
 ### Fixing building heights
 OSM heights and codes are sometimes missing or wrong. Add overrides to `data/overrides.json`, keyed by building code or OSM id, then run `npm run scene && npm run outlines` (no re-render needed unless heights changed):

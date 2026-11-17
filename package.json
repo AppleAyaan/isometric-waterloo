@@ -8,6 +8,7 @@
     "export": "node scripts/export.mjs",
     "outlines": "node scripts/outlines.mjs",
     "traffic": "node scripts/traffic.mjs",
+    "walk": "node scripts/walk.mjs",
     "night": "node scripts/night.mjs",
     "serve": "node scripts/serve.mjs",
     "site": "node scripts/build_site.mjs",

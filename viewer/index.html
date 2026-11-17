@@ -153,6 +153,23 @@
     #feedback { left: 16px; bottom: calc(10px + var(--safe-b)); padding: 7px 13px; border-radius: 12px; color: var(--ink); font-size: 13px; font-weight: 500; text-decoration: none; display: flex; align-items: center; gap: 7px; }
     #feedback:hover { background: rgba(255, 255, 255, .7); }
     #feedback svg { width: 15px; height: 15px; color: var(--gold-deep); }
+    /* live Waterloo clock, centred at the top */
+    #clock { top: calc(16px + var(--safe-t)); left: 50%; transform: translateX(-50%); z-index: 2; padding: 6px 7px 6px 13px; border-radius: 14px; display: flex; align-items: center; gap: 10px; white-space: nowrap; }
+    #clock .ic { width: 18px; height: 18px; flex: none; color: var(--gold-deep); }
+    #clock .ic .moon, :root[data-night] #clock .ic .sun { display: none; }
+    :root[data-night] #clock .ic .moon { display: inline; }
+    #clock .tx { display: flex; flex-direction: column; line-height: 1.15; }
+    #clock b { font: 600 15px/1.15 Inter, system-ui, sans-serif; font-variant-numeric: tabular-nums; letter-spacing: .2px; }
+    #clock small { color: var(--muted); font-size: 11px; }
+    #clock .live { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #3fbf6a; margin-right: 5px; vertical-align: 1px; box-shadow: 0 0 0 0 rgba(63, 191, 106, .6); animation: pulse 2s infinite; }
+    @keyframes pulse { 70% { box-shadow: 0 0 0 5px rgba(63, 191, 106, 0); } 100% { box-shadow: 0 0 0 0 rgba(63, 191, 106, 0); } }
+    #clock .auto { display: none; padding: 4px 9px; font-size: 12px; }
+    #clock.manual .auto { display: inline-flex; }
+    #clock.manual .live { background: var(--muted); animation: none; }
+    #clock:not(.manual) { padding-right: 13px; }
+    /* on narrow screens there is no room between the title and the controls: the clock joins the title card */
+    #title #clock { position: static; transform: none; padding: 0; background: none; border: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; border-radius: 0; }
+    #title #clock b { font-size: 13.5px; }
     #toast { left: 50%; bottom: calc(64px + var(--safe-b)); transform: translate(-50%, 10px); padding: 8px 14px; border-radius: 12px; font-size: 13px; font-weight: 500; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 10; white-space: nowrap; }
     #toast.show { opacity: 1; transform: translate(-50%, 0); }
     /* loading screen */
@@ -248,6 +265,11 @@
     <div id="compass" title="North"><svg viewBox="0 0 24 24"><path d="M12 2.5 15.5 12h-7z" fill="#d6453d"/><path d="M12 21.5 8.5 12h7z" fill="#8b8474"/><text x="12" y="13.6" font-size="5" text-anchor="middle" fill="#fff" font-family="Inter, sans-serif" font-weight="700">N</text></svg></div>
   </div>
 
+  <div id="clock" class="chip" role="status" aria-live="off" title="Live time in Waterloo. Night mode follows the sun.">
+    <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g class="sun"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></g><path class="moon" d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>
+    <div class="tx"><b id="clocktime">--:--</b><small><span class="live"></span><span id="clocksub">Waterloo</span></small></div>
+    <button class="btn auto" id="clockauto" title="Go back to following the sun in Waterloo">Follow live</button>
+  </div>
   <div id="tip" class="chip"></div>
   <div id="card" class="chip" role="region" aria-live="polite" aria-label="Selected building"><button class="x" aria-label="Close" title="Close (Esc)">×</button><div id="cardBody"></div></div>
   <div id="toast" class="chip" role="status" aria-live="polite"></div>
@@ -275,14 +297,26 @@
       <h3>What's moving?</h3>
       <p>Cars, GRT and GO buses, the ION, students on the fields and the geese are a simulation, not live data. Buses follow their real routes and stop at real stops; the ION drops the crossing gates as it passes.</p>
       <h3>Night on campus</h3>
-      <p>The moon button turns the lights on: street lamps along the roads, paths and lots, and windows lit floor by floor from each building's real height and levels. Dana Porter and DC stay busy late; the residences are home time.</p>
+      <p>The map follows the real time in Waterloo (the clock at the top): the lights come on at dusk and go off at dawn. The moon button flips it until the next dusk or dawn. Night mode turns the lights on: street lamps along the roads, paths and lots, and windows lit floor by floor from each building's real height and levels. Dana Porter and DC stay busy late; the residences are home time.</p>
       <h3>Credits</h3>
       <p>Map data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a> (ODbL). <span id="paintcredit"></span>Vehicle photos from Wikimedia Commons (<a href="sprites/CREDITS.md" target="_blank" rel="noopener">licences</a>). Inspired by Andy Coenen's <a href="https://cannoneyed.com/projects/isometric-nyc" target="_blank" rel="noopener">isometric.nyc</a>. Not affiliated with the University of Waterloo.</p>
     </div>
   </dialog>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.1/openseadragon.min.js"></script>
+  <script>
+    // feature modules (viewer/*.js) register with onApp(fn); fn(app) runs once the map is up
+    window.onApp = (fn) => { if (window.app?.ready) { try { fn(window.app); } catch (e) { console.error(e); } } else (window.onApp.q ||= []).push(fn); };
+  </script>
   <script src="traffic.js"></script>
+  <!-- FEATURE MODULES (each registers through onApp) -->
+  <script src="sky.js"></script>
+  <script src="events.js"></script>
+  <script src="timelapse.js"></script>
+  <script src="eggs.js"></script>
+  <script src="follow.js"></script>
+  <script src="sound.js"></script>
+  <script src="route.js"></script>
   <script>
   (async () => {
     const OUT = new URL('../out/', location.href).href;
@@ -403,10 +437,22 @@
 
     // ---- night on campus: a second, pre-lit copy of the map (npm run night) cross-fades over the day map ----
     const nightBtn = $('night'), themeColor = document.querySelector('meta[name=theme-color]');
-    let nightOn = false, nightLayer = null, nightFade = 0;
+    let nightOn = false, nightLayer = null, nightFade = 0, nightLevel = 0;
+    const mixHex = (a, b, k) => '#' + [0, 2, 4].map((i) => Math.round(parseInt(a.slice(1 + i, 3 + i), 16) * (1 - k) + parseInt(b.slice(1 + i, 3 + i), 16) * k).toString(16).padStart(2, '0')).join('');
+    // how dark it is, 0 (day) .. 1 (full night). Between, the night map is partly faded in (dusk / dawn).
+    function setNightLevel(k, instant) {
+      if (!nightInfo) return;
+      k = Math.max(0, Math.min(1, k));
+      const on = k >= 0.5;
+      if (on !== nightOn || nightLayer == null) setNight(on, k);
+      nightLevel = k;
+      document.body.style.backgroundColor = mixHex(meta.background, nightInfo.background, k);
+      window.mapLife?.setNightLevel(k);
+      if (nightLayer && nightLayer !== 'loading') { if (instant) { cancelAnimationFrame(nightFade); nightLayer.setOpacity(k); viewer.world.getItemAt(0).setOpacity(k > 0.999 ? 0 : 1); } else fadeNight(k); }
+    }
     function fadeNight(to) {
       cancelAnimationFrame(nightFade);
-      const from = nightLayer.getOpacity(), t0 = performance.now(), dur = reduceMotion ? 1 : 900;
+      const from = nightLayer.getOpacity(), t0 = performance.now(), dur = reduceMotion || Math.abs(to - from) < 0.08 ? 1 : 900;
       const tick = (now) => {
         const u = Math.min(1, (now - t0) / dur), e = u * u * (3 - 2 * u);
         nightLayer.setOpacity(from + (to - from) * e);
@@ -416,18 +462,17 @@
       };
       nightFade = requestAnimationFrame(tick);
     }
-    function setNight(on, save) {
+    function setNight(on, level = on ? 1 : 0) {
       if (!nightInfo) return;
-      nightOn = on;
+      nightOn = on; nightLevel = level;
       document.documentElement.toggleAttribute('data-night', on);
-      document.body.style.backgroundColor = on ? nightInfo.background : meta.background;
+      document.body.style.backgroundColor = mixHex(meta.background, nightInfo.background, level);
       themeColor.content = on ? nightInfo.background : meta.background;
       nightBtn.classList.toggle('on', on);
       nightBtn.setAttribute('aria-pressed', String(on));
-      window.mapLife?.setNight(on);
-      if (save) store.set('night', on ? '1' : '0');
-      if (nightLayer && nightLayer !== 'loading') return fadeNight(on ? 1 : 0);
-      if (!on || nightLayer) return;
+      window.mapLife?.setNightLevel(level);
+      if (nightLayer && nightLayer !== 'loading') return fadeNight(level);
+      if (level <= 0.001 || nightLayer) return;
       // fetched on first use only, so daytime visitors never download it
       nightLayer = 'loading';
       const slow = setTimeout(() => toast('Turning the lights on…'), 400);
@@ -436,17 +481,105 @@
         x: 0, y: 0, width: 1, opacity: 0,
         success: (e) => {
           nightLayer = e.item; clearTimeout(slow);
-          const go = () => fadeNight(nightOn ? 1 : 0);
+          const go = () => fadeNight(nightLevel);
           if (e.item.getFullyLoaded?.()) go(); else { e.item.addOnceHandler('fully-loaded-change', go); setTimeout(go, 2500); }
         },
         error: () => { clearTimeout(slow); nightLayer = null; toast("Couldn't load the night map"); setNight(false); },
       });
     }
+
+    // ---- live Waterloo time: night mode follows the sun on campus unless you flip it yourself ----
+    const CAMPUS = { lat: 43.4723, lon: -80.5449 }, TZ = 'America/Toronto';
+    const RAD = Math.PI / 180;
+    // solar elevation (degrees) at a moment, NOAA's low-precision formulas (good to a fraction of a degree)
+    function sunElevation(date) {
+      const d = date.getTime() / 86400000 + 2440587.5 - 2451545.0; // days since J2000
+      const g = (357.529 + 0.98560028 * d) * RAD, q = 280.459 + 0.98564736 * d;
+      const L = (q + 1.915 * Math.sin(g) + 0.02 * Math.sin(2 * g)) * RAD, e = (23.439 - 0.00000036 * d) * RAD;
+      const ra = Math.atan2(Math.cos(e) * Math.sin(L), Math.cos(L)), dec = Math.asin(Math.sin(e) * Math.sin(L));
+      const gmst = (18.697374558 + 24.06570982441908 * d) % 24;
+      const ha = ((gmst * 15 + CAMPUS.lon) * RAD - ra);
+      return Math.asin(Math.sin(CAMPUS.lat * RAD) * Math.sin(dec) + Math.cos(CAMPUS.lat * RAD) * Math.cos(dec) * Math.cos(ha)) / RAD;
+    }
+    // the street lights come on a little after sunset (sun ~3 degrees below the horizon) and go off around dawn
+    const DUSK = -3;
+    const isDark = (t) => sunElevation(t) < DUSK;
+    // The map's clock. Normally real time; the time-lapse moves it (offset) and speeds it up (rate).
+    // nightLevelFor(date) -> 0..1 decides how dark the map is; sky.js replaces it with a smooth twilight.
+    const simClock = { base: Date.now(), at: performance.now(), rate: 1, live: true };
+    const appNow = () => (simClock.live ? new Date() : new Date(simClock.base + (performance.now() - simClock.at) * simClock.rate));
+    function setSimTime(date, rate = simClock.rate) {
+      if (date == null) { simClock.live = true; simClock.rate = 1; }
+      else Object.assign(simClock, { base: +date, at: performance.now(), rate, live: false });
+      tickClock();
+    }
+    let nightLevelFor = (t) => (isDark(t) ? 1 : 0);
+    // when the light next changes: step forward in 10 min, then narrow to the minute
+    function nextChange(from) {
+      const now = isDark(from);
+      let t = from.getTime();
+      for (let i = 0; i < 6 * 30 && isDark(new Date(t)) === now; i++) t += 600000;
+      let lo = t - 600000, hi = t;
+      while (hi - lo > 60000) { const m = (lo + hi) / 2; if (isDark(new Date(m)) === now) lo = m; else hi = m; }
+      return new Date(hi);
+    }
+    const fmtTime = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, hour: 'numeric', minute: '2-digit', hour12: true });
+    const fmtTZ = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, timeZoneName: 'short' });
+    const tzName = (t) => fmtTZ.formatToParts(t).find((p) => p.type === 'timeZoneName')?.value || '';
+    const clockEl = $('clock'), clockTime = $('clocktime'), clockSub = $('clocksub');
+    // A manual flip holds until the next dusk or dawn, then live time takes over again.
+    // ?night / ?day in the URL pin it for this visit.
+    const params = new URLSearchParams(location.search);
+    let manualUntil = Number(store.get('nightManualUntil')) || 0, manualValue = store.get('nightManual') === '1';
+    if (params.has('night') || params.has('day')) { manualValue = params.has('night'); manualUntil = Infinity; }
+    function wantNight(now) { return now.getTime() < manualUntil ? manualValue : isDark(now); }
+    function tickClock() {
+      const now = appNow();
+      if (manualUntil !== Infinity && manualUntil && now.getTime() >= manualUntil) { manualUntil = 0; store.set('nightManualUntil', '0'); }
+      const manual = now.getTime() < manualUntil;
+      clockTime.textContent = fmtTime.format(now).replace(/\s?([ap])\.?m\.?/i, (_, x) => ' ' + x.toUpperCase() + 'M');
+      const next = nextChange(now), dark = isDark(now);
+      clockSub.textContent = manual
+        ? (manualValue ? 'Night mode' : 'Day mode') + ' · your pick'
+        : `Waterloo ${tzName(now)} · ${dark ? 'sunrise' : 'dusk'} ${fmtTime.format(next).replace(/\s?([ap])\.?m\.?/i, (_, x) => ' ' + x.toUpperCase() + 'M')}`;
+      clockEl.classList.toggle('manual', manual);
+      // safe mid-load: the fade-in goes to whatever is current
+      const manualNow = simClock.live && now.getTime() < manualUntil;
+      if (nightInfo) setNightLevel(manualNow ? (manualValue ? 1 : 0) : nightLevelFor(now), !simClock.live);
+      if (!simClock.live) clockSub.textContent = (simClock.rate > 1 ? 'Time-lapse' : 'Time travel') + ' · ' + fmtDay.format(now);
+      clockEl.classList.toggle('manual', manual || !simClock.live);
+      if (window.app) for (const fn of app.tickers) try { fn(now); } catch (e) { console.error(e); }
+    }
+    const fmtDay = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, weekday: 'short', month: 'short', day: 'numeric' });
+    $('clockauto').onclick = () => {
+      manualUntil = 0; store.set('nightManualUntil', '0');
+      if (!simClock.live) { setSimTime(null); window.app?.emit('timechange'); }
+      tickClock();
+      toast(nightOn ? 'Following Waterloo time: night' : 'Following Waterloo time: day');
+    };
+    // narrow screens: the clock rides inside the title card instead of floating between it and the controls
+    const narrow = matchMedia('(max-width: 900px)');
+    const placeClock = () => (narrow.matches ? $('title').appendChild(clockEl) : document.body.insertBefore(clockEl, $('tip')));
+    narrow.addEventListener?.('change', placeClock);
+    placeClock();
     if (nightInfo) {
       nightBtn.hidden = false;
-      nightBtn.onclick = () => { if (nightLayer === 'loading') return; setNight(!nightOn, true); toast(nightOn ? 'Night on campus' : 'Back to daytime'); };
-      if (store.get('night') === '1' || new URLSearchParams(location.search).has('night')) setNight(true);
+      nightBtn.title = 'Night on campus (N). Follows the time in Waterloo until you flip it';
+      nightBtn.onclick = () => {
+        const on = !nightOn, now = new Date();
+        if (!simClock.live) { setSimTime(null); window.app?.emit('timechange'); }
+        // your pick lasts until the next dusk or dawn; picking what live time already shows just follows it
+        if (on === isDark(now)) { manualUntil = 0; store.set('nightManualUntil', '0'); }
+        else { manualValue = on; manualUntil = nextChange(now).getTime(); store.set('nightManual', on ? '1' : '0'); store.set('nightManualUntil', String(manualUntil)); }
+        setNightLevel(on ? 1 : 0);
+        tickClock();
+        toast(manualUntil > Date.now() ? (on ? 'Night on campus until sunrise' : 'Daytime until dusk') : on ? 'Night on campus' : 'Back to daytime');
+      };
     }
+    tickClock();
+    // every 15 s live; every frame-ish while time-lapsing
+    let lastTick = performance.now();
+    setInterval(() => { if (!simClock.live || performance.now() - lastTick > 15000) { lastTick = performance.now(); tickClock(); } }, 250);
 
     // compass: which way north points on screen (from the map's own projection)
     if (life?.projection) {
@@ -520,6 +653,7 @@
       if (!e.quick) return;
       stopTour();
       const item = viewer.world.getItemAt(0);
+      for (const fn of window.app?.clickHandlers || []) if (fn(e.position.x, e.position.y, e)) return;
       const ip = item.viewerElementToImageCoordinates(e.position);
       select(thingAt(ip.x, ip.y), false);
     });
@@ -586,7 +720,7 @@
     }
     function flyTo(b, pad = 250) {
       const r = group(b).map(center).reduce((a, c) => ({ x0: Math.min(a.x0, c.x0), x1: Math.max(a.x1, c.x1), y0: Math.min(a.y0, c.y0), y1: Math.max(a.y1, c.y1) }));
-      viewer.viewport.fitBounds(viewer.viewport.imageToViewportRectangle(r.x0 - pad, r.y0 - pad, r.x1 - r.x0 + 2 * pad, r.y1 - r.y0 + 2 * pad), reduceMotion);
+      viewer.viewport.fitBounds(viewer.world.getItemAt(0).imageToViewportRectangle(r.x0 - pad, r.y0 - pad, r.x1 - r.x0 + 2 * pad, r.y1 - r.y0 + 2 * pad), reduceMotion);
     }
     async function share(b) {
       const url = location.href, title = `${b.name || prettyKind(b.kind)} · Isometric UWaterloo`;
@@ -704,7 +838,7 @@
         Escape: () => { stopTour(); select(null); },
         ArrowLeft: () => viewer.viewport.panBy(new OpenSeadragon.Point(-pan, 0)), ArrowRight: () => viewer.viewport.panBy(new OpenSeadragon.Point(pan, 0)),
         ArrowUp: () => viewer.viewport.panBy(new OpenSeadragon.Point(0, -pan)), ArrowDown: () => viewer.viewport.panBy(new OpenSeadragon.Point(0, pan)),
-      }[k];
+      }[k] || window.app?.keys[k] || window.app?.keys[k.toLowerCase()];
       if (act) { act(); e.preventDefault(); }
     });
 
@@ -718,6 +852,32 @@
         setTimeout(() => toast(matchMedia('(hover: none)').matches ? 'Tap any building to see what it is' : 'Point at any building · press / to search'), 900);
       }
     }
+    // ---- the app object feature modules get (see window.onApp) ----
+    const handlers = {};
+    window.app = {
+      viewer, meta, life, nightInfo, OUT, TILED, store, reduceMotion, toast, select, flyTo, stopTour, esc,
+      byRef, group, center, latLon, lots, buildingAt, thingAt, label, prettyKind, getSelected: () => selected,
+      CAMPUS, TZ, sunElevation, isDark, now: appNow, setSimTime, isLive: () => simClock.live, getRate: () => simClock.rate,
+      setNightLevelFn: (fn) => { nightLevelFor = fn; tickClock(); }, getNightLevel: () => nightLevel, refreshClock: tickClock,
+      tickers: [], onTick: (fn) => window.app.tickers.push(fn),
+      // project scene metres to image px (h metres up) and back (on the ground)
+      sceneToImage: (x, y, h = 0) => { const [PX, PY] = life.projection; return [PX[0] * x + PX[1] * y + PX[2] * h + PX[3], PY[0] * x + PY[1] * y + PY[2] * h + PY[3]]; },
+      imageToScene: (ix, iy) => { const [PX, PY] = life.projection, u = ix - PX[3], v = iy - PY[3], det = PX[0] * PY[1] - PX[1] * PY[0]; return [(u * PY[1] - v * PX[1]) / det, (PX[0] * v - PY[0] * u) / det]; },
+      // (the day map is item 0; before it opens there is nothing to project against)
+      imageToScreen: (ix, iy) => { const it = viewer.world.getItemAt(0); if (!it) return [0, 0]; const p = it.imageToViewerElementCoordinates(new OpenSeadragon.Point(ix, iy)); return [p.x, p.y]; },
+      screenToImage: (sx, sy) => { const it = viewer.world.getItemAt(0); if (!it) return [0, 0]; const p = it.viewerElementToImageCoordinates(new OpenSeadragon.Point(sx, sy)); return [p.x, p.y]; },
+      // add a round button to the right-hand control bar (above the compass divider)
+      addControl: (btn) => { const c = $('controls'), hrs = c.querySelectorAll('hr'); c.insertBefore(btn, hrs[hrs.length - 1]); return btn; },
+      // map clicks: a handler returning true swallows the click (no building select)
+      clickHandlers: [],
+      on: (ev, fn) => (handlers[ev] ||= []).push(fn),
+      emit: (ev, ...a) => (handlers[ev] || []).forEach((fn) => { try { fn(...a); } catch (e) { console.error(e); } }),
+      keys: {}, // extra keyboard shortcuts: key -> fn
+      helpSection: (title, html) => { const h = $('help').querySelector('h3:last-of-type'); h.insertAdjacentHTML('beforebegin', `<h3>${title}</h3>${html}`); },
+      ready: true,
+    };
+    for (const fn of window.onApp.q || []) try { fn(app); } catch (e) { console.error('module failed', e); }
+    window.onApp.q = [];
     appReady = true;
     finishLoading();
   })();
