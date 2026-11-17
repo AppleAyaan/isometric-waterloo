@@ -7,23 +7,19 @@ onApp((app) => {
   const { viewer } = app, vp = viewer.viewport;
 
   document.head.insertAdjacentHTML('beforeend', `<style>
-    #follow { right: 16px; bottom: calc(40px + var(--safe-b)); width: 290px; max-width: calc(100vw - 32px); padding: 13px 16px 14px; z-index: 3; display: none; }
+    #follow { right: 16px; bottom: calc(40px + var(--safe-b)); width: 300px; max-width: calc(100vw - 32px); padding: var(--sp-4); border-radius: var(--r-panel); z-index: 3; display: none; }
     #follow.show { display: block; animation: rise .22s ease-out; }
-    #follow .kick { font-size: 10.5px; letter-spacing: .6px; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 6px; }
     #follow .kick i { width: 7px; height: 7px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 0 0 rgba(254, 211, 76, .7); animation: fpulse 1.6s infinite; }
     @keyframes fpulse { 70% { box-shadow: 0 0 0 6px rgba(254, 211, 76, 0); } 100% { box-shadow: 0 0 0 0 rgba(254, 211, 76, 0); } }
     #follow .hd { display: flex; align-items: center; gap: 8px; margin: 7px 28px 0 0; }
     #follow .hd img { height: 20px; width: auto; flex: none; }
-    #follow .hd .rb { flex: none; min-width: 30px; padding: 0 6px; border-radius: 8px; color: #fff; text-align: center; font: 11px/22px Silkscreen, monospace; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35); }
+    #follow .hd .rb { flex: none; min-width: 30px; padding: 0 6px; border-radius: var(--r-tag); color: #fff; text-align: center; font: 11px/22px Silkscreen, monospace; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35); }
     #follow .hd .car { flex: none; width: 30px; height: 20px; }
-    #follow h2 { margin: 0; font-size: 15px; line-height: 1.25; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    #follow .st { margin: 6px 0 0; font-size: 13px; }
-    #follow dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin: 8px 0 0; font-size: 12.5px; }
+    #follow h2 { margin: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #follow .st { margin: 6px 0 0; font-size: var(--fs-body); }
+    #follow dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; margin: 10px 0 0; font-size: var(--fs-meta); }
     #follow dt { color: var(--muted); }
     #follow dd { margin: 0; font-variant-numeric: tabular-nums; }
-    #follow .x { position: absolute; top: 8px; right: 10px; width: 28px; height: 28px; border-radius: 9px; background: none; border: 0; color: var(--muted); font-size: 20px; line-height: 1; cursor: pointer; }
-    #follow .x:hover { background: rgba(255, 255, 255, .6); color: var(--ink); }
-    :root[data-night] #follow .x:hover { background: rgba(255, 255, 255, .12); }
     @media (max-width: 600px) { #follow { left: 16px; right: 16px; width: auto; bottom: calc(52px + var(--safe-b)); } }
   </style>`);
   const card = document.createElement('div');

@@ -147,15 +147,12 @@ onApp((app) => {
   // ---------- card ----------
   const css = document.createElement('style');
   css.textContent = `
-    #eggcard { right: 16px; bottom: calc(40px + var(--safe-b, 0px)); width: 320px; max-width: calc(100vw - 32px); padding: 16px 18px; display: none; z-index: 3; }
+    #eggcard { right: 16px; bottom: calc(40px + var(--safe-b, 0px)); width: 320px; max-width: calc(100vw - 32px); padding: var(--sp-4); border-radius: var(--r-panel); display: none; z-index: 3; }
     #eggcard.show { display: block; animation: rise .22s ease-out; }
-    #eggcard h2 { margin: 6px 28px 6px 0; font-size: 16px; line-height: 1.25; }
-    #eggcard p { margin: 0 0 8px; font-size: 13px; line-height: 1.45; color: var(--ink); }
-    #eggcard .egg-note { color: var(--muted); font-size: 12px; margin: 0; }
-    #eggcard .x { position: absolute; top: 8px; right: 10px; width: 28px; height: 28px; border-radius: 9px; background: none; border: 0; color: var(--muted); font-size: 20px; line-height: 1; cursor: pointer; }
-    #eggcard .x:hover { background: rgba(255, 255, 255, .6); color: var(--ink); }
-    :root[data-night] #eggcard .x:hover { background: rgba(255, 255, 255, .12); }
-    #eggcard .egg-tag { display: inline-block; padding: 0 6px; border-radius: 6px; background: #ff5fae; color: #fff; font: 11px/18px Silkscreen, monospace; }
+    #eggcard h2 { margin: 6px 28px 6px 0; }
+    #eggcard p { margin: 0 0 8px; font-size: var(--fs-body); line-height: 1.45; color: var(--ink); }
+    #eggcard .egg-note { color: var(--muted); font-size: var(--fs-meta); margin: 0; }
+    #eggcard .egg-tag { display: inline-block; padding: 0 6px; border-radius: var(--r-tag); background: #ff5fae; color: #fff; font: 11px/18px Silkscreen, monospace; }
     #eggcard .egg-tag.eng { background: var(--gold); color: #1f1c17; }
     @media (max-width: 640px) { #eggcard { left: 16px; right: 16px; width: auto; bottom: calc(52px + var(--safe-b, 0px)); } }
   `;
