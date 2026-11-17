@@ -8,6 +8,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import { startServer } from './serve.mjs';
+import { computeOutlines } from './outlines.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
@@ -50,7 +51,8 @@ try {
   const write = (name, dataUrl) => fs.writeFileSync(path.join(ROOT, 'out', name), Buffer.from(dataUrl.split(',')[1], 'base64'));
   write(colourName, res.render);
   write('idmap.png', res.idmap);
-  fs.writeFileSync(path.join(ROOT, 'out/meta.json'), JSON.stringify(res.meta));
+  const scene = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/scene.json'), 'utf8'));
+  fs.writeFileSync(path.join(ROOT, 'out/meta.json'), JSON.stringify(computeOutlines(scene, res.meta)));
   console.log(`exported ${res.meta.width}x${res.meta.height}px (${res.meta.buildings.length} buildings) in ${((Date.now() - t0) / 1000).toFixed(1)}s -> out/${colourName}`);
 } finally {
   await browser.close();

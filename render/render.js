@@ -13,7 +13,7 @@ export const CONFIG = {
   azimuth: Number(params.get('azimuth') ?? -45),   // -45 = camera in the south-west, looking north-east
   tile: 512,                                       // mosaic is padded to a multiple of this (Colab works in 512 quadrants)
   idDownsample: 2,                                 // ID map resolution divisor
-  background: '#1d2433',
+  background: '#f3eee4',
 };
 
 const COLORS = {

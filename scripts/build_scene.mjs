@@ -190,6 +190,7 @@ for (const b of scene.buildings) {
   if (o) {
     if (o.height) { b.height = o.height; b.volumes = null; }
     if (o.name) b.name = o.name;
+    if (o.ref) b.ref = o.ref;
   }
   if (b.volumes) {
     // Parts may not cover the whole footprint: keep a base volume at the outline's own height.
