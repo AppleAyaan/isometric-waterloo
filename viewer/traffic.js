@@ -89,6 +89,9 @@ window.startTraffic = function startTraffic({ viewer, data: T, occluded, canvas,
     Object.assign(car, { a, e, t: fromGate ? 0 : rand(0, 1) * Math.hypot(N[e.to][0] - N[a][0], N[e.to][1] - N[a][1]), v: CLASS_V[e.cls] * 0.7 });
   }
   const CAR_COUNT = 140;
+  // how many of the cars are on the road (0..1); the time-lapse / rush hour sets it through mapLife.setDensity
+  let density = 1;
+  const liveCars = () => (density >= 1 ? cars : cars.slice(0, Math.round(cars.length * density)));
   for (let i = 0; i < CAR_COUNT; i++) {
     const r = Math.random();
     const kind = r < 0.08 ? 'van' : r < 0.25 ? 'suv' : 'car';
@@ -382,11 +385,11 @@ window.startTraffic = function startTraffic({ viewer, data: T, occluded, canvas,
     }
 
     poses.clear();
-    for (const c of cars) poses.set(c, carPose(c));
+    for (const c of liveCars()) poses.set(c, carPose(c));
     for (const b of buses) if (b.wait <= 0) poses.set(b, b.path.at(b.s));
-    const movers = [...cars, ...buses];
+    const movers = [...liveCars(), ...buses];
 
-    for (const c of cars) {
+    for (const c of liveCars()) {
       const p = poses.get(c);
       let target = CLASS_V[c.e.cls] * c.pace * (c.e.aisle ? 0.45 : 1);
       const remain = p.L - c.t;
@@ -459,7 +462,11 @@ window.startTraffic = function startTraffic({ viewer, data: T, occluded, canvas,
     for (const g of games) stepGame(g, dt);
     stepGeese(dt);
     stepWalkers(dt);
+    for (const L of layers) if (L.step) try { L.step(dt, api); } catch (e) { layerError(L, e); }
   }
+  // extra layers added by other modules (viewer/*.js) through mapLife.addLayer({ step(dt, api), collect(add, api), overlay(ctx, api) })
+  const layers = [];
+  const layerError = (L, e) => { if (!L._err) { L._err = e; console.error('map layer failed', e); } };
 
   // ---------- drawing primitives ----------
   const ctx = canvas.getContext('2d');
@@ -941,6 +948,7 @@ window.startTraffic = function startTraffic({ viewer, data: T, occluded, canvas,
   // paused: nothing moves or draws, and the clock does not jump when it resumes
   let enabled = true;
   let night = 0, nightTarget = 0;
+  let timeScale = 1, lastItems = [];
   // A ground-level glow ahead of a vehicle: a soft cone, `reach` metres long.
   function beam(x, y, hx, hy, half, reach, alpha) {
     const nx = -hy, ny = hx, a = toScreen(x, y, 0.05), b = toScreen(x + hx * reach, y + hy * reach, 0.05);
@@ -1004,9 +1012,11 @@ window.startTraffic = function startTraffic({ viewer, data: T, occluded, canvas,
     if (!enabled) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, canvas.width, canvas.height); }
   }
   function drawFrame(now) {
-    const dt = Math.min(0.1, (now - (frame.last || now)) / 1000);
+    const dt = Math.min(0.1, (now - (frame.last || now)) / 1000) * timeScale;
     frame.last = now;
-    step(dt);
+    // fast-forward (time-lapse) in small steps so cars still queue and stop properly
+    const n = Math.max(1, Math.ceil(dt / 0.1));
+    for (let i = 0; i < n; i++) step(dt / n);
 
     const item = viewer.world.getItemAt(0);
     const dpr = devicePixelRatio || 1;
@@ -1038,7 +1048,7 @@ window.startTraffic = function startTraffic({ viewer, data: T, occluded, canvas,
       if (!onScreen(sx, sy)) return;
       items.push({ x, y, sx, sy, draw, v, hidden: hiddenAt(x, y), ...extra });
     };
-    for (const c of cars) { const p = poses.get(c) || carPose(c); add(p.x, p.y, drawCar, c, { hx: p.hx, hy: p.hy }); }
+    for (const c of liveCars()) { const p = poses.get(c) || carPose(c); add(p.x, p.y, drawCar, c, { hx: p.hx, hy: p.hy }); }
     for (const b of buses) { if (b.wait > 0) continue; const p = b.path.at(b.s); add(p.x, p.y, drawBus, b, { hx: p.hx, hy: p.hy }); }
     for (const t of trains) {
       if (t.wait > 0) continue;
@@ -1068,7 +1078,10 @@ window.startTraffic = function startTraffic({ viewer, data: T, occluded, canvas,
       for (const w of walkers) { const [x, y] = walkerXY(w); add(x, y, (q, s) => drawWalker(w, s), w, {}); }
       for (const gp of goalposts) { const f = gp.f; add(f.x + f.ux * gp.a, f.y + f.uy * gp.a, () => drawGoalpost(gp), null, {}); }
     }
+    api.small = small;
+    for (const L of layers) if (L.collect) try { L.collect(add, api); } catch (e) { layerError(L, e); }
     items.sort((a, b) => (a.wire ? 1 : 0) - (b.wire ? 1 : 0) || a.sy - b.sy);
+    lastItems = items;
     const visible = new Set();
     for (const q of items) {
       if (q.v && (q.v.type === 'bus' || q.v.type === 'ion')) visible.add(q.v);
@@ -1079,6 +1092,7 @@ window.startTraffic = function startTraffic({ viewer, data: T, occluded, canvas,
     night += (nightTarget - night) * Math.min(1, dt * 2.5);
     if (Math.abs(night - nightTarget) < 0.005) night = nightTarget;
     if (night > 0.01) drawNight(items, small);
+    for (const L of layers) if (L.overlay) try { ctx.save(); L.overlay(ctx, api); ctx.restore(); } catch (e) { layerError(L, e); }
 
     // cards for buses and trains (anchored above the middle box); too zoomed out to read, they would just bury the map
     const compact = pxPerM < 1.1;
@@ -1120,7 +1134,49 @@ window.startTraffic = function startTraffic({ viewer, data: T, occluded, canvas,
 
   }
   // handy for poking at in devtools; the viewer uses setEnabled / isEnabled for its play-pause button
-  window.mapLife = { cars, buses, trains, crossings, games, geese, setEnabled, isEnabled: () => enabled, setNight: (on) => { nightTarget = on ? 1 : 0; } };
+  // ---------- public API (viewer/index.html and the feature modules use this) ----------
+  // scene coords (metres, x east / y north) -> screen px; h = metres above ground
+  const poseOf = (v) => {
+    if (!v) return null;
+    if (v.type === 'car') return poses.get(v) || carPose(v);
+    if (v.type === 'bus') return v.wait > 0 ? null : v.path.at(v.s);
+    if (v.type === 'ion') return v.wait > 0 ? null : v.path.at(v.s - v.dir * (ION_LEN / 2), 0, v.dir);
+    if (v.type === 'walker') { const [x, y] = walkerXY(v); return { x, y, hx: v.c.rx * v.dir, hy: v.c.ry * v.dir }; }
+    if (v.x != null) return { x: v.x, y: v.y, hx: v.hx || 1, hy: v.hy || 0 };
+    return null;
+  };
+  // the vehicle (car, bus or ION) drawn nearest a screen point, within `r` px
+  function vehicleAt(sx, sy, r = 18) {
+    let best = null, bd = r;
+    for (const q of lastItems) {
+      const v = q.v;
+      if (q.hidden || !v || !(v.type === 'car' || v.type === 'bus' || v.type === 'ion')) continue;
+      const len = v.type === 'ion' ? ION_SEGS[q.seg] : v.L;
+      const a = toScreen(q.x - q.hx * len / 2, q.y - q.hy * len / 2, v.H / 2), b = toScreen(q.x + q.hx * len / 2, q.y + q.hy * len / 2, v.H / 2);
+      const dx = b[0] - a[0], dy = b[1] - a[1], L2 = dx * dx + dy * dy || 1;
+      const u = Math.max(0, Math.min(1, ((sx - a[0]) * dx + (sy - a[1]) * dy) / L2));
+      const d = Math.hypot(a[0] + dx * u - sx, a[1] + dy * u - sy) - Math.max(2, v.W * pxPerM * 0.5);
+      if (d < bd) { bd = d; best = v; }
+    }
+    return best;
+  }
+  const api = {
+    T, PX, PY, CAM, Path, rand, pick, shade, inBounds,
+    get pxPerM() { return pxPerM; }, get clock() { return clock; }, get night() { return night; }, small: false,
+    toScreen: (x, y, h = 0) => toScreen(x, y, h), toImage, hiddenAt: (x, y) => { const [ix, iy] = toImage(x, y); return occluded(ix, iy); },
+    prism, paint, shadow, line3, dot3, glow, poly, drawFigure, beam,
+    cars, buses, trains, crossings, games, geese, flocks, walkers, ion, tracks, ION_LEN,
+    PEOPLE_SCALE, SKIN: SKIN_ALL, SHIRTS: SHIRTS_ALL,
+  };
+  window.mapLife = {
+    cars, buses, trains, crossings, games, geese, walkers, api, setEnabled, isEnabled: () => enabled,
+    setNight: (on) => { nightTarget = on ? 1 : 0; },
+    setNightLevel: (k) => { nightTarget = Math.max(0, Math.min(1, k)); },
+    setTimeScale: (k) => { timeScale = Math.max(0, k); }, getTimeScale: () => timeScale,
+    setDensity: (k) => { density = Math.max(0.05, Math.min(1, k)); }, getDensity: () => density,
+    addLayer: (L) => { layers.push(L); return () => { const i = layers.indexOf(L); if (i >= 0) layers.splice(i, 1); }; },
+    poseOf, vehicleAt, cardInfo,
+  };
   // let things settle a little before the first frame
   for (let i = 0; i < 60; i++) step(0.1);
   requestAnimationFrame(frame);
