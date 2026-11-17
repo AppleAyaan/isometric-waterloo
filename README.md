@@ -43,6 +43,8 @@ Google's Map Tiles API terms restrict storing and redistributing its imagery. Ch
 ### Map life (simulated)
 The viewer animates cars, GRT/GO buses, ION trains, students on the fields by CIF and Canada geese, and labels the named parking lots. None of it is live: cars wander the OSM road graph, buses are routed through the real OSM stops whose `route_ref` lists them, the ION shuttles along the line (gates come down at the level crossings) and stops at the UW station. `npm run export` writes `out/traffic.json`; after changing `data/transit.json` (route names, colours, liveries) or the scene, refresh it alone with `npm run traffic`.
 
+Buses and trains are textured with perspective-corrected photos from Wikimedia Commons in `viewer/sprites/` (sources and licences in `viewer/sprites/CREDITS.md`); a vehicle falls back to its painted livery if an image is missing.
+
 ### Fixing building heights
 OSM heights and codes are sometimes missing or wrong. Add overrides to `data/overrides.json`, keyed by building code or OSM id, then run `npm run scene && npm run outlines` (no re-render needed unless heights changed):
 ```json

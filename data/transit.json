@@ -84,33 +84,33 @@
   },
   "liveries": {
     "GRT": {
-      "body": "#f4f4f1",
-      "skirt": "#163f7a",
-      "stripe": "#d52b1e",
-      "roof": "#e9e9e4",
+      "body": "#eef0f2",
+      "skirt": "#d9dde3",
+      "stripe": "#2f6fd1",
+      "roof": "#3a73cf",
       "glass": "#1c232b"
     },
     "iXpress": {
-      "body": "#f4f4f1",
-      "skirt": "#d52b1e",
-      "stripe": "#163f7a",
-      "roof": "#e9e9e4",
+      "body": "#eef0f2",
+      "skirt": "#d9dde3",
+      "stripe": "#2f6fd1",
+      "roof": "#3a73cf",
       "glass": "#1c232b"
     },
     "GO": {
       "body": "#f2f3ef",
-      "skirt": "#2e7d32",
-      "stripe": "#2e7d32",
-      "roof": "#e7e9e4",
+      "skirt": "#3f9b35",
+      "stripe": "#9ed53a",
+      "roof": "#e3e8e0",
       "glass": "#1c232b"
     },
     "ION": {
-      "body": "#f3f5f6",
-      "skirt": "#0b78c2",
-      "stripe": "#5cc6e8",
-      "roof": "#dfe3e6",
+      "body": "#eef1f4",
+      "skirt": "#c9ced4",
+      "stripe": "#1f55b8",
+      "roof": "#d9dde2",
       "glass": "#161c22",
-      "nose": "#2a3138"
+      "nose": "#1d2329"
     }
   }
 }

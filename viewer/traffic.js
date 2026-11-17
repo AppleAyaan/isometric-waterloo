@@ -13,6 +13,15 @@ window.startTraffic = function startTraffic({ viewer, data: T, occluded, canvas,
   const rand = (a, b) => a + Math.random() * (b - a);
   const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
   const LIV = T.liveries || {};
+  // photo textures (see viewer/sprites/CREDITS.md); vehicles fall back to painted liveries until they load
+  const sprite = (f) => { const im = new Image(); im.decoding = 'async'; im.src = 'sprites/' + f; return im; };
+  const SPR = {
+    ionSide: sprite('ion-side.webp'), ionFront: sprite('ion-front.webp'),
+    grtSide: sprite('grt-side.webp'), grtFront: sprite('grt-front.webp'),
+    goLeft: sprite('go-side-left.webp'), goRight: sprite('go-side-right.webp'), goFront: sprite('go-front.webp'), goRear: sprite('go-rear.webp'),
+  };
+  // ION module boundaries in ion-side.webp (px), front module first
+  const ION_SLICES = [[0, 165], [178, 279], [292, 386], [399, 497], [511, 640]];
   let clock = 0;
 
   // ---------- polyline helper ----------
@@ -116,7 +125,8 @@ window.startTraffic = function startTraffic({ viewer, data: T, occluded, canvas,
   const tracks = (ion.tracks || []).filter((t) => t.pts.length > 1).map((t) => ({ path: new Path(t.pts), station: t.station }));
   const ionPath = tracks[0]?.path || null;
   const trackFor = (dir) => (dir === 1 || tracks.length < 2 ? 0 : 1);
-  const ION_SEGS = [11.6, 7.0, 11.6], ION_GAP = 0.35, ION_LEN = ION_SEGS.reduce((s, l) => s + l, 0) + ION_GAP * 2;
+  // five modules (cab, three short bodies, cab), sized from the reference photo
+  const ION_SEGS = [6.9, 4.6, 4.4, 4.6, 6.9], ION_GAP = 0.6, ION_LEN = ION_SEGS.reduce((s, l) => s + l, 0) + ION_GAP * 2;
   if (ionPath) {
     for (const dir of [1, -1]) {
       const k = trackFor(dir), path = tracks[k].path;
@@ -469,11 +479,32 @@ window.startTraffic = function startTraffic({ viewer, data: T, occluded, canvas,
     return [at(f0, z0), at(f1, z0), at(f1, z1), at(f0, z1)];
   }
   // draw: sides (with details), then the top
-  function paint(P, { side, top, details = [], stroke }) {
+  // Photo texture on a face. Images are stored with the vehicle's front at the left edge (sides) or as
+  // seen from outside (ends). The projection is affine, so each face is a parallelogram and the image
+  // maps onto it with a single canvas transform. `rev` mirrors the mapping along the face.
+  function texFace(P, name, t) {
+    const img = t.img;
+    if (!img || !img.complete || !img.naturalWidth) return false;
+    const H = P.h1 - P.h0, sw = t.sw ?? img.naturalWidth, sx = t.sx ?? 0, sh = img.naturalHeight;
+    const ends = name === 'front' || name === 'back';
+    const rev = ends ? !t.rev : !!t.rev; // ends: image left = the vehicle's right as seen from outside
+    const q = faceQuad(P, name, rev ? 1 : 0, rev ? 0 : 1, H, 0);
+    const X = [q[1][0] - q[0][0], q[1][1] - q[0][1]], Y = [q[3][0] - q[0][0], q[3][1] - q[0][1]];
+    ctx.save();
+    poly(q); ctx.clip();
+    ctx.transform(X[0] / sw, X[1] / sw, Y[0] / sh, Y[1] / sh, q[0][0], q[0][1]);
+    ctx.drawImage(img, sx, 0, sw, sh, 0, 0, sw, sh);
+    ctx.restore();
+    const dark = Math.max(0, Math.min(0.35, (0.86 - P.faces[name].lit) * 1.1));
+    if (dark > 0.01) { poly(q); ctx.fillStyle = `rgba(20,24,30,${dark.toFixed(3)})`; ctx.fill(); }
+    return true;
+  }
+  function paint(P, { side, top, details = [], stroke, tex = {} }) {
     const H = P.h1 - P.h0;
     for (const name of ['front', 'right', 'back', 'left']) {
       const F = P.faces[name];
       if (!F.vis) continue;
+      if (tex[name] && texFace(P, name, tex[name])) continue;
       poly(faceQuad(P, name, 0, 1, 0, H));
       ctx.fillStyle = shade(typeof side === 'function' ? side(name) : side, F.lit); ctx.fill();
       if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 0.7; ctx.stroke(); }
@@ -559,7 +590,10 @@ window.startTraffic = function startTraffic({ viewer, data: T, occluded, canvas,
         );
       }
     }
-    paint(P, { side: L.body, top: L.roof, details, stroke: small ? null : 'rgba(30,25,20,.35)' });
+    const tex = small ? {} : v.dd
+      ? { left: { img: SPR.goLeft }, right: { img: SPR.goRight }, front: { img: SPR.goFront }, back: { img: SPR.goRear } }
+      : { left: { img: SPR.grtSide }, right: { img: SPR.grtSide }, front: { img: SPR.grtFront } };
+    paint(P, { side: L.body, top: L.roof, details, tex, stroke: small ? null : 'rgba(30,25,20,.35)' });
     if (!small) {
       // roof-mounted HVAC pod toward the rear
       const o = -v.L * 0.28;
@@ -582,7 +616,7 @@ window.startTraffic = function startTraffic({ viewer, data: T, occluded, canvas,
         { faces: SIDES, f0: 0.02, f1: 0.98, z0: 0.95, z1: 2.45, color: L.glass },
       );
       // doors: double-leaf, slightly lighter than the glass band, one or two per section
-      const doors = seg === 1 ? [0.5] : [0.35, 0.72];
+      const doors = seg === 0 || seg === last ? [0.55] : [0.5];
       for (const d of doors) details.push({ faces: SIDES, f0: d - 0.06, f1: d + 0.06, z0: 0.08, z1: 2.5, color: '#46525e' }, { faces: SIDES, f0: d - 0.003, f1: d + 0.003, z0: 0.08, z1: 2.5, color: '#9aa4ad' });
       // window pillars
       for (let f = 0.1; f < 0.95; f += 0.115) details.push({ faces: SIDES, f0: f, f1: f + 0.012, z0: 0.95, z1: 2.45, color: L.body });
@@ -604,14 +638,28 @@ window.startTraffic = function startTraffic({ viewer, data: T, occluded, canvas,
       if (!cabFront) details.push({ faces: ['front'], f0: 0.1, f1: 0.9, z0: 0.2, z1: 3.1, color: '#3a3f44' });
       if (!cabBack) details.push({ faces: ['back'], f0: 0.1, f1: 0.9, z0: 0.2, z1: 3.1, color: '#3a3f44' });
     }
-    paint(P, { side: L.body, top: L.roof, details, stroke: small ? null : 'rgba(30,25,20,.35)' });
+    let tex = {};
+    if (!small) {
+      // left side shows the photo as taken; the right side reuses it end-for-end (both ends are cabs)
+      const [a, b] = ION_SLICES[seg], [ra, rb] = ION_SLICES[last - seg];
+      tex = { left: { img: SPR.ionSide, sx: a, sw: b - a }, right: { img: SPR.ionSide, sx: ra, sw: rb - ra, rev: true } };
+      if (seg === 0) tex.front = { img: SPR.ionFront };
+      if (seg === last) tex.back = { img: SPR.ionFront };
+    }
+    paint(P, { side: L.body, top: L.roof, details, tex, stroke: small ? null : 'rgba(30,25,20,.35)' });
     if (small) return;
-    // roof equipment: boxes on the cab sections, pantograph on the centre section
-    if (seg !== 1) {
-      const o = seg === 0 ? -1.5 : 1.5;
+    // flexible bellows to the next module
+    if (seg < last) {
+      const o = -(len / 2 + ION_GAP / 2);
+      const Bw = prism(x + hx * o, y + hy * o, hx, hy, ION_GAP + 0.15, v.W * 0.9, 0.6, v.H - 0.12);
+      paint(Bw, { side: '#24282c', top: '#2e3337' });
+    }
+    // roof equipment: boxes on the cab modules, pantograph on the middle one
+    if (seg === 0 || seg === last) {
+      const o = seg === 0 ? -1.2 : 1.2;
       const R = prism(x + hx * o, y + hy * o, hx, hy, 4.2, 2.0, v.H, v.H + 0.45);
       paint(R, { side: '#c9ced3', top: '#d8dde1', stroke: 'rgba(30,25,20,.25)' });
-    } else {
+    } else if (seg === 2) {
       const base = [x, y, v.H + 0.15], nx = -hy, ny = hx;
       const R = prism(x, y, hx, hy, 2.2, 1.6, v.H, v.H + 0.18);
       paint(R, { side: '#9aa3ab', top: '#aab2b9' });
@@ -816,9 +864,10 @@ window.startTraffic = function startTraffic({ viewer, data: T, occluded, canvas,
     if (!el) {
       el = document.createElement('div');
       el.className = 'vcard chip';
-      el.innerHTML = '<span class="rb"></span><span class="vt"><b></b><small></small></span>';
+      el.innerHTML = '<img class="lg" alt=""><span class="rb"></span><span class="vt"><b></b><small></small></span>';
       cardLayer.appendChild(el);
       cardOf.set(v, el);
+      el._logo = el.querySelector('.lg');
       el._badge = el.querySelector('.rb'); el._title = el.querySelector('b'); el._sub = el.querySelector('small');
     }
     return el;
@@ -828,20 +877,25 @@ window.startTraffic = function startTraffic({ viewer, data: T, occluded, canvas,
     if (v.type === 'bus') {
       const r = v.route, st = v.stops[v.next];
       return {
-        badge: r.agency === 'GO' ? `GO ${r.id}` : r.id, color: r.color, title: r.name,
+        logo: r.agency === 'GO' ? 'logo-go.png' : 'logo-grt.png', badge: r.id, color: r.color, title: r.name,
         sub: v.dwell > 0 && st ? `At ${st.name}` : st ? `Next · ${st.name}` : 'Leaving the area',
       };
     }
     const north = v.dir === 1;
     const before = v.station != null && !v.served && v.dwell <= 0;
     return {
-      badge: 'ION', color: ion.color, title: `to ${north ? ion.northTerminus : ion.southTerminus}`,
+      logo: 'logo-ion.png', badge: '', color: ion.color, title: `to ${north ? ion.northTerminus : ion.southTerminus}`,
       sub: v.dwell > 0 ? `At ${ion.stationName}` : before ? `Next · ${ion.stationName}` : `Next · ${north ? ion.northNext : ion.southNext}`,
     };
   }
 
   // ---------- frame ----------
+  // keep animating even if one frame throws (log the first error only)
   function frame(now) {
+    try { drawFrame(now); } catch (e) { if (!frame.err) { frame.err = e; console.error('map life frame failed', e); } }
+    requestAnimationFrame(frame);
+  }
+  function drawFrame(now) {
     const dt = Math.min(0.1, (now - (frame.last || now)) / 1000);
     frame.last = now;
     step(dt);
@@ -851,7 +905,7 @@ window.startTraffic = function startTraffic({ viewer, data: T, occluded, canvas,
     if (canvas.width !== innerWidth * dpr || canvas.height !== innerHeight * dpr) { canvas.width = innerWidth * dpr; canvas.height = innerHeight * dpr; }
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    if (!item) return requestAnimationFrame(frame);
+    if (!item) return;
     const p0 = item.imageToViewerElementCoordinates(new OpenSeadragon.Point(0, 0));
     const p1 = item.imageToViewerElementCoordinates(new OpenSeadragon.Point(1000, 0));
     view = { ox: p0.x, oy: p0.y, k: (p1.x - p0.x) / 1000 };
@@ -914,9 +968,10 @@ window.startTraffic = function startTraffic({ viewer, data: T, occluded, canvas,
 
     // cards for buses and trains (anchored above the middle box)
     const compact = pxPerM < 1.1;
+    const placed = [];
     for (const v of [...buses, ...trains]) {
       const el = cardOf.get(v);
-      const head = items.find((q) => q.v === v && (q.seg == null || q.seg === 1));
+      const head = items.find((q) => q.v === v && (q.seg == null || q.seg === 2));
       if (!visible.has(v) || !head) { if (el) el.style.display = 'none'; continue; }
       const c = card(v), info = cardInfo(v);
       const [ax, ay] = toScreen(head.x, head.y, v.H + 1.6);
@@ -924,12 +979,30 @@ window.startTraffic = function startTraffic({ viewer, data: T, occluded, canvas,
       c.classList.toggle('compact', compact);
       c.classList.toggle('behind', !!head.hidden);
       c._badge.style.background = info.color;
+      c._badge.style.display = info.badge ? '' : 'none';
+      if (c._logo._src !== info.logo) { c._logo._src = info.logo; c._logo.src = 'sprites/' + info.logo; c._logo.alt = info.logo.includes('go') ? 'GO' : info.logo.includes('ion') ? 'ION' : 'GRT'; }
+      const changed = c._compact !== compact | (c._title._t !== info.title) | (c._sub._t !== info.sub);
       setText(c._badge, info.badge); setText(c._title, info.title); setText(c._sub, info.sub);
-      c.style.transform = `translate3d(${Math.round(ax)}px, ${Math.round(ay)}px, 0) translate(-50%, calc(-100% - 7px))`;
-      c.style.zIndex = String(Math.round(head.sy));
+      if (changed || !c._w) { c._compact = compact; c._w = c.offsetWidth; c._h = c.offsetHeight; }
+      placed.push({ c, ax, ay, top: ay - 7 - c._h, sy: head.sy });
+    }
+    // stack cards that would overlap: the one nearest the camera keeps its spot, others lift above it
+    placed.sort((a, b) => b.ay - a.ay);
+    const boxes = [];
+    for (const p of placed) {
+      const w = p.c._w, h = p.c._h, x0 = p.ax - w / 2, x1 = p.ax + w / 2;
+      let top = p.top;
+      for (let guard = 0; guard < 12; guard++) {
+        const hit = boxes.find((b) => x0 < b.x1 && x1 > b.x0 && top < b.y1 && top + h > b.y0);
+        if (!hit) break;
+        top = hit.y0 - h - 4;
+      }
+      boxes.push({ x0, x1, y0: top, y1: top + h });
+      p.c.classList.toggle('lifted', top < p.top - 1);
+      p.c.style.transform = `translate3d(${Math.round(x0)}px, ${Math.round(top)}px, 0)`;
+      p.c.style.zIndex = String(Math.round(p.sy));
     }
 
-    requestAnimationFrame(frame);
   }
   window.mapLife = { cars, buses, trains, crossings, games, geese }; // handy for poking at in devtools
   // let things settle a little before the first frame
