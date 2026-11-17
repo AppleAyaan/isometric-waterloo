@@ -12,8 +12,10 @@
 //
 //   npm run night                      -> out/night.png
 //   npm run night -- --crop x,y,w,h    -> scratch preview of a region (out/night-crop.png)
+//   npm run night -- --season winter   -> out/night-winter.png, from the day map under snow (viewer/seasons.js)
 import fs from 'node:fs';
 import path from 'node:path';
+import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 import { decodePNG, encodePNG } from './png.mjs';
 import { makeProjector, clipRect } from './outlines.mjs';
@@ -27,6 +29,39 @@ const meta = JSON.parse(fs.readFileSync(path.join(ROOT, 'out/meta.json'), 'utf8'
 const srcFile = ['map.png', 'render.png'].map((f) => path.join(ROOT, 'out', f)).find((f) => fs.existsSync(f));
 const day = decodePNG(fs.readFileSync(srcFile));
 const crop = arg('--crop')?.split(',').map(Number);
+const season = arg('--season');
+if (season && season !== 'winter') throw new Error(`no ${season} recolour (only --season winter)`);
+if (season) winterize(day);
+
+// Snow on the day map before it's graded, with the viewer's own recolour (so day and night winter match).
+// Lakes come from viewer/water.json, filled into a mask a strip of rows at a time.
+function winterize(img) {
+  const ctx = { onApp: () => {} };
+  ctx.self = ctx;
+  vm.runInNewContext(fs.readFileSync(path.join(ROOT, 'viewer/seasons.js'), 'utf8'), ctx);
+  const water = JSON.parse(fs.readFileSync(path.join(ROOT, 'viewer/water.json'), 'utf8'));
+  const { width: w, height: h } = img, STRIP = 256;
+  const edges = [];
+  for (const { o, h: holes } of water) for (const ring of [o, ...holes]) for (let i = 0; i < ring.length; i += 2) {
+    const k = (i + 2) % ring.length;
+    edges.push([ring[i], ring[i + 1], ring[k], ring[k + 1]]);
+  }
+  for (let y0 = 0; y0 < h; y0 += STRIP) {
+    const sh = Math.min(STRIP, h - y0), wm = new Uint8Array(w * sh * 4), xs = [];
+    for (let j = 0; j < sh; j++) { // even-odd scanline fill at pixel centres
+      const y = y0 + j + 0.5;
+      xs.length = 0;
+      for (const [ax, ay, bx, by] of edges) if ((ay <= y) !== (by <= y)) xs.push(ax + ((y - ay) / (by - ay)) * (bx - ax));
+      xs.sort((a, b) => a - b);
+      for (let k = 0; k + 1 < xs.length; k += 2) {
+        for (let x = Math.max(0, Math.ceil(xs[k] - 0.5)); x < Math.min(w, Math.ceil(xs[k + 1] - 0.5)); x++) wm[(j * w + x) * 4 + 3] = 255;
+      }
+    }
+    // (a clamped view, as in the browser: snow can run past 255)
+    const px = new Uint8ClampedArray(img.data.buffer, img.data.byteOffset + y0 * w * 4, sh * w * 4);
+    ctx.winterRecolour(px, w, sh, { x0: 0, y0, s: 1, wm });
+  }
+}
 const [OX, OY, W, H] = crop || [0, 0, day.width, day.height];
 
 // ---------- projection + depth ----------
@@ -379,10 +414,10 @@ for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) {
   }
   out[k * 4 + 3] = 255;
 }
-const file = crop ? 'night-crop.png' : 'night.png';
+const file = `night${season ? '-' + season : ''}${crop ? '-crop' : ''}.png`;
 fs.writeFileSync(path.join(ROOT, 'out', file), encodePNG({ width: W, height: H, data: out }, crop ? 6 : 9));
 const nightBg = '#' + NIGHT_BG.map((v) => v.toString(16).padStart(2, '0')).join('');
-if (!crop) {
+if (!crop && !season) {
   fs.writeFileSync(path.join(ROOT, 'out/night.json'), JSON.stringify({ background: nightBg, lamps: lamps.length, generated: new Date().toISOString() }));
 }
 console.log(`out/${file} ${W}x${H}, background ${nightBg} in ${((Date.now() - t0) / 1000).toFixed(1)}s`);

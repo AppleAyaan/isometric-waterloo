@@ -71,7 +71,7 @@ The moon button (or `N`) cross-fades to `out/night.png`, a pre-lit copy of the p
 
 Night mode follows the live time in Waterloo: a clock centred at the top shows the local time (EST/EDT) and when the lights next change. Lights come on at dusk (sun 3° below the horizon, computed in the browser) and go off at dawn. The moon button flips it until the next dusk or dawn, and *Follow live* goes back to the clock. `?night` / `?day` in the URL pin it for one visit.
 
-The viewer only downloads the night map the first time someone turns it on. Vehicles get headlight beams, tail lights and lit cabins. Re-run `npm run night` whenever `map.png`, the scene or heights change.
+Winter has its own night map, `out/night-winter.png`, baked from the snowy recolour in `viewer/seasons.js` with `npm run night -- --season winter`; the viewer switches to it whenever the winter season is showing. The viewer only downloads a night map the first time someone turns night on. Vehicles get headlight beams, tail lights and lit cabins. Re-run `npm run night` whenever `map.png`, the scene or heights change.
 
 ### Fixing building heights
 OSM heights and codes are sometimes missing or wrong. Add overrides to `data/overrides.json`, keyed by building code or OSM id, then run `npm run scene && npm run outlines` (no re-render needed unless heights changed):

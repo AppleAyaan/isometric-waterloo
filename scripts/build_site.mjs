@@ -42,8 +42,15 @@ fs.writeFileSync(path.join(SITE, 'out', 'layer.json'), JSON.stringify({ painted:
 let nightNote = '';
 if (fs.existsSync(path.join(OUT, 'night.png')) && fs.existsSync(path.join(OUT, 'night.json'))) {
   const n = buildDZI(decodePNG(fs.readFileSync(path.join(OUT, 'night.png'))), path.join(SITE, 'out', 'night'));
-  fs.copyFileSync(path.join(OUT, 'night.json'), path.join(SITE, 'out', 'night.json'));
   nightNote = `, night map ${n.tiles} tiles`;
+  // seasonal night maps (npm run night -- --season winter); the viewer swaps to one when that season is shown
+  const info = JSON.parse(fs.readFileSync(path.join(OUT, 'night.json'), 'utf8'));
+  info.variants = ['winter'].filter((v) => fs.existsSync(path.join(OUT, `night-${v}.png`)));
+  for (const v of info.variants) {
+    const t = buildDZI(decodePNG(fs.readFileSync(path.join(OUT, `night-${v}.png`))), path.join(SITE, 'out', `night-${v}`));
+    nightNote += `, ${v} night ${t.tiles} tiles`;
+  }
+  fs.writeFileSync(path.join(SITE, 'out', 'night.json'), JSON.stringify(info));
 }
 
 // social preview: the middle of campus at 1200x630
