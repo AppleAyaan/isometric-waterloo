@@ -1,8 +1,6 @@
 // atmosphere.js: the sky around and over the map.
 //  - a backdrop behind the map (its empty paper is see-through, see index.html): pale sky blue on a clear day,
 //    greyer under cloud, deep indigo with twinkling stars at night, kept in lockstep with the night map fade
-//  - small pixel-art clouds drifting over campus in bunches with the live wind, more and greyer as the weather turns, tinted by
-//    golden hour and moonlight, each casting a soft shadow on the ground; they thin out as you zoom in
 //  - now and then a flock of birds or a plane (with a contrail by day, blinking lights by night) crosses over
 onApp((app) => {
   const { viewer, reduceMotion } = app;
@@ -33,8 +31,6 @@ onApp((app) => {
 
   const PAPER = hex(app.meta?.background || '#f3eee4'), NIGHT = hex(app.nightInfo?.background || '#1c1930');
   const night = () => app.getNightLevel();
-  // golden hour, as sky.js grades the map (the clouds sit above that grade, so they tint themselves)
-  const golden = (el) => sstep(9, 2, el) * sstep(-5, -0.5, el);
   // how overcast it looks, 0..1
   function overcast() {
     const w = app.weather;
@@ -76,101 +72,21 @@ onApp((app) => {
   }
 
   // ---------------------------------------------------------------------------------------------------------
-  // 2. clouds: small pixel-art clouds (hard-edged cells, a few flat tones, an outline) to match the painted map.
-  // Each shape is a grid of cells: a union of round puffs cut flat at the base.
-  let seed = 4242;
-  const srnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-  const SHAPES = Array.from({ length: 10 }, (_, i) => {
-    const w = [14, 18, 22, 26, 30][i % 5] + Math.floor(srnd() * 4), h = Math.ceil(w * 0.55), base = h - 2, puffs = [];
-    const n = 2 + Math.floor(w / 9);
-    for (let k = 0; k < n; k++) puffs.push([3 + ((w - 6) * k) / Math.max(1, n - 1) + (srnd() - 0.5) * 1.5, base - 2 - srnd(), 2.6 + srnd() * 1.4]);
-    const tops = 1 + Math.floor(srnd() * (w > 20 ? 3 : 2));
-    for (let k = 0; k < tops; k++) puffs.push([w * (0.3 + srnd() * 0.4), base - 4.5 - srnd() * 2, 3.4 + srnd() * (w / 9)]);
-    return { w, h, base, puffs };
-  });
-  const inside = (S, x, y, dy = 0, k = 1) => y <= S.base && S.puffs.some(([px, py, r]) => (x + 0.5 - px) ** 2 + (y + 0.5 - py - dy) ** 2 <= (r * k) ** 2);
-  // one canvas pixel per cell; drawn scaled up with smoothing off
-  function cloudSprite(S, P) {
-    const c = document.createElement('canvas'); c.width = S.w + 2; c.height = S.h + 2;
-    const g = c.getContext('2d');
-    const at = (x, y, col) => { g.fillStyle = col; g.fillRect(x + 1, y + 1, 1, 1); };
-    for (let y = -1; y <= S.h; y++) for (let x = -1; x <= S.w; x++) {
-      if (inside(S, x, y)) {
-        const hi = inside(S, x, y, -2.2, 0.55), lit = inside(S, x, y, -1.2, 0.92);
-        at(x, y, y === S.base ? P.belly : hi ? P.hi : lit ? P.body : P.shade);
-      } else if (inside(S, x + 1, y) || inside(S, x - 1, y) || inside(S, x, y + 1) || inside(S, x, y - 1)) at(x, y, P.line);
-    }
-    return c;
-  }
-  // its shadow on the ground: the same silhouette, flat and dark
-  function shadowSprite(S) {
-    const c = document.createElement('canvas'); c.width = S.w; c.height = S.h;
-    const g = c.getContext('2d'); g.fillStyle = 'rgb(24,28,48)';
-    for (let y = 0; y < S.h; y++) for (let x = 0; x < S.w; x++) if (inside(S, x, y)) g.fillRect(x, y, 1, 1);
-    return c;
-  }
-  const SHADOWS = SHAPES.map(shadowSprite);
-
-  // colour scheme from the weather, the sun and the night level; sprites are redrawn only when it changes
-  let sprites = [], paletteKey = '';
-  function palette() {
-    const oc = overcast(), storm = app.weather?.kind === 'storm' ? 1 : 0, n = night(), gold = golden(app.sunElevation(app.now())) * (1 - n);
-    let body = mix([255, 255, 255], [198, 203, 212], oc), shade = mix([214, 224, 238], [146, 154, 170], oc);
-    body = mix(body, [196, 200, 210], storm); shade = mix(shade, [128, 134, 150], storm);
-    body = mix(body, [255, 214, 186], gold * 0.8); shade = mix(shade, [214, 160, 184], gold * 0.75);
-    body = mix(body, [104, 104, 146], n); shade = mix(shade, [58, 56, 94], n);
-    const hi = mix(body, [255, 255, 255], 0.45 * (1 - n)), belly = mix(shade, [90, 96, 120], 0.25), line = mix(shade, [40, 44, 70], 0.55);
-    const q = (c) => c.map((v) => Math.round(v / 6) * 6);
-    return { body: rgb(q(body)), shade: rgb(q(shade)), hi: rgb(q(hi)), belly: rgb(q(belly)), line: rgb(q(line), 0.8) };
-  }
-  function refreshSprites() {
-    const P = palette(), key = JSON.stringify(P);
-    if (key === paletteKey) return;
-    paletteKey = key;
-    sprites = SHAPES.map((s) => cloudSprite(s, P));
-  }
-
-  // clouds live in scene metres at altitude and wrap around campus, drifting with the wind
+  // 2. scene helpers for the fly-overs
   const PROJ = app.life?.projection || [[1, 0, 0, 0], [0, -1, -1, 0]];
   const [PX, PY] = PROJ;
   const MPX = app.meta?.scale || 3; // image px per metre
   const iw = app.meta?.width || 7168, ih = app.meta?.height || 3584;
   const corners = [[0, 0], [iw, 0], [0, ih], [iw, ih]].map(([x, y]) => app.imageToScene(x, y));
   const GB = app.life?.bounds || { minX: Math.min(...corners.map((c) => c[0])), maxX: Math.max(...corners.map((c) => c[0])), minY: Math.min(...corners.map((c) => c[1])), maxY: Math.max(...corners.map((c) => c[1])) };
-  const X0 = GB.minX - 450, X1 = GB.maxX + 450, Y0 = GB.minY - 450, Y1 = GB.maxY + 450;
-  // they come in bunches: a few loose clusters of 1-5 clouds, each cloud wandering a little around its spot in
-  // the cluster (and at its own pace) so the bunches slowly shift shape as they drift. Listed cluster by cluster,
-  // so a light sky shows whole bunches rather than a scatter.
-  const CLOUDS = [];
-  for (let k = 0; k < 12; k++) {
-    const cx = X0 + srnd() * (X1 - X0), cy = Y0 + srnd() * (Y1 - Y0), m = 1 + Math.floor(srnd() * 5);
-    for (let i = 0; i < m; i++) CLOUDS.push({
-      x: cx + (srnd() - 0.5) * 220, y: cy + (srnd() - 0.5) * 220, alt: 70 + srnd() * 50, s: Math.floor(srnd() * SHAPES.length), flip: srnd() < 0.5,
-      pace: 0.8 + srnd() * 0.4, wob: 12 + srnd() * 22, f: 0.15 + srnd() * 0.2, p: srnd() * 6.28, vis: 0,
-    });
-  }
-  function cloudCount() {
-    const w = app.weather, N = CLOUDS.length;
-    if (!w) return Math.round(N * 0.3);
-    if (w.kind === 'storm') return N;
-    if (w.kind === 'rain' || w.kind === 'snow') return Math.round(N * 0.85);
-    if (w.kind === 'fog') return Math.round(N * 0.2);
-    const c = clamp((w.cloudCover ?? 0) / 100);
-    return Math.round(N * (c < 0.15 ? 0.18 : 0.22 + 0.6 * c));
-  }
-  const CELL = 4.5; // metres per cloud pixel
   // scene metres -> screen (CSS px), affine, from the projection and the current zoom
   function sceneMatrix() {
     const [ox, oy] = app.imageToScreen(0, 0), [sx] = app.imageToScreen(1000, 0), s = (sx - ox) / 1000;
     return [s * PX[0], s * PY[0], s * PX[1], s * PY[1], ox + s * PX[3], oy + s * PY[3], s * PX[2], s * PY[2], s * MPX];
   }
-  function wind() {
-    const w = app.weather, d = (((w?.windDir ?? 250) + 180) * Math.PI) / 180;
-    return { ex: Math.sin(d), ny: Math.cos(d), kmh: w?.wind ?? 12 };
-  }
 
   // ---------------------------------------------------------------------------------------------------------
-  // 3. fly-overs: a V of birds by day, a plane any time. They fly in scene metres (like the clouds), so they pan
+  // 3. fly-overs: a V of birds by day, a plane any time. They fly in scene metres, so they pan
   // and zoom with the map; their drawn size grows with the zoom.
   let flock = null, plane = null, nextFlock = performance.now() + rand(6000, 20000), nextPlane = performance.now() + rand(15000, 40000);
   const GCX = (GB.minX + GB.maxX) / 2, GCY = (GB.minY + GB.maxY) / 2, REACH = Math.hypot(GB.maxX - GB.minX, GB.maxY - GB.minY) / 2 + 500;
@@ -278,55 +194,6 @@ onApp((app) => {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, cv.width, cv.height);
     const M = sceneMatrix(), n = night();
-    // clouds are high up: past ~2x the home zoom you're below them, so they thin out and go
-    const zoomK = 1 - sstep(1.7, 3.6, viewer.viewport.getZoom(true) / viewer.viewport.getHomeZoom());
-    const count = cloudCount(), wd = wind();
-    const speed = Math.max(1.5, (wd.kmh / 3.6) * 2.2) * clamp(app.isLive() ? 1 : app.getRate() / 60, 1, 40);
-    const sw = X1 - X0, sh = Y1 - Y0, oc = overcast();
-    const shadowA = 0.2 * (1 - n) * (1 - 0.65 * sstep(0.7, 1, oc));
-    const cloudA = (0.96 - 0.2 * n) * zoomK;
-    for (let i = 0; i < CLOUDS.length; i++) {
-      const c = CLOUDS[i];
-      c.vis = reduceMotion ? (i < count ? 1 : 0) : clamp(c.vis + (i < count ? dt : -dt) / 4);
-      if (!reduceMotion) { c.x += wd.ex * speed * c.pace * dt; c.y += wd.ny * speed * c.pace * dt; }
-      c.x = X0 + ((((c.x - X0) % sw) + sw) % sw); c.y = Y0 + ((((c.y - Y0) % sh) + sh) % sh);
-    }
-    if (zoomK > 0.01) {
-      refreshSprites();
-      ctx.imageSmoothingEnabled = false;
-      const T = reduceMotion ? 0 : t / 1000;
-      // where each cloud is right now: its drifting spot plus a slow wander of its own
-      const live = CLOUDS.filter((c) => c.vis > 0.01).map((c) => ({ c, S: SHAPES[c.s], x: c.x + c.wob * Math.sin(T * c.f + c.p), y: c.y + c.wob * Math.cos(T * c.f * 0.8 + c.p * 1.7) }));
-      // shadows first, flat on the ground in the map's projection, nudged away from the sun
-      // (kept to the campus ground: a shadow on the empty sky around the map would just be a smudge)
-      ctx.save();
-      if (shadowA > 0.01 && app.groundPath(ctx, dpr)) {
-        ctx.clip();
-        for (const { c, S, x: gx0, y: gy0 } of live) {
-          const gx = gx0 + 25, gy = gy0 - 18, w = S.w * CELL, d = S.h * CELL * 0.7;
-          const sx = (M[0] * gx + M[2] * gy + M[4]) * dpr, sy = (M[1] * gx + M[3] * gy + M[5]) * dpr, rr = w * M[8] * dpr;
-          if (sx + rr < 0 || sy + rr < 0 || sx - rr > cv.width || sy - rr > cv.height) continue;
-          ctx.setTransform(M[0] * dpr, M[1] * dpr, M[2] * dpr, M[3] * dpr, sx, sy);
-          ctx.globalAlpha = shadowA * c.vis * zoomK;
-          ctx.drawImage(SHADOWS[c.s], -w / 2, -d / 2, w, d);
-        }
-      }
-      ctx.restore();
-      ctx.imageSmoothingEnabled = false;
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      // then the clouds, up at their altitude, in whole screen pixels per cell so they stay crisp;
-      // far ones (higher on screen) first
-      const px = Math.max(1, Math.round(CELL * M[8] * dpr));
-      const placed = live.map((o) => ({ ...o, sx: (M[0] * o.x + M[2] * o.y + M[4] + M[6] * o.c.alt) * dpr, sy: (M[1] * o.x + M[3] * o.y + M[5] + M[7] * o.c.alt) * dpr })).sort((a, b) => a.sy - b.sy);
-      for (const { c, S, sx, sy } of placed) {
-        const w = (S.w + 2) * px, h = (S.h + 2) * px, x0 = Math.round(sx - w / 2), y0 = Math.round(sy - (S.base + 1) * px);
-        if (x0 + w < 0 || x0 > cv.width || y0 + h < 0 || y0 > cv.height) continue;
-        ctx.globalAlpha = cloudA * c.vis;
-        if (c.flip) { ctx.setTransform(-1, 0, 0, 1, x0 * 2 + w, 0); ctx.drawImage(sprites[c.s], x0, y0, w, h); ctx.setTransform(1, 0, 0, 1, 0, 0); }
-        else ctx.drawImage(sprites[c.s], x0, y0, w, h);
-      }
-      ctx.globalAlpha = 1;
-    }
     if (!reduceMotion) {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       flyovers(t, dt, M, viewer.viewport.getZoom(true) / viewer.viewport.getHomeZoom());
@@ -334,14 +201,13 @@ onApp((app) => {
     }
   }
 
-  // the backdrop and cloud colours follow the clock and the weather
+  // the backdrop follows the clock and the weather
   const restyle = () => { paintBackdrop(); if (reduceMotion) kick(); };
   app.onTick(restyle);
   app.on('weather', restyle);
   paintBackdrop();
   size();
 
-  app.helpSection('Sky', `<p>Little pixel clouds drift over campus in bunches with the real wind, casting shadows as they go: just a few on a clear day,
-    a crowd of grey ones when it rains, tinted gold at sunset and moonlit at night. Zoom in and you drop below them.
-    Clear nights fill with stars, and every so often a flock of birds or a plane passes over.</p>`);
+  app.helpSection('Sky', `<p>The sky around campus follows the time and the weather: pale blue on a clear day, grey under cloud,
+    and stars on a clear night. Every so often a flock of birds or a plane passes over.</p>`);
 });

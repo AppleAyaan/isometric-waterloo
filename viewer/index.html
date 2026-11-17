@@ -334,6 +334,7 @@
   <!-- FEATURE MODULES (each registers through onApp) -->
   <script src="sky.js"></script>
   <script src="atmosphere.js"></script>
+  <script src="seasons.js"></script>
   <script src="events.js"></script>
   <script src="timelapse.js"></script>
   <script src="eggs.js"></script>
@@ -397,12 +398,33 @@
     const hexRGB = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
     const KEY = { day: { bg: hexRGB(meta.background), soft: 12 }, night: nightInfo && { bg: hexRGB(nightInfo.background), soft: 0 } };
     viewer.addHandler('tile-loaded', (e) => { e.tile.keyAs = viewer.world.getIndexOfItem(e.tiledImage) === 0 ? KEY.day : KEY.night; });
+    // On top of that, a module can recolour the map (seasons.js): app.setTileFilter(fn) has fn(pixels, w, h, info)
+    // run over a copy of each keyed tile, so the originals stay intact and switching back costs nothing.
+    let tileFilter = null, filterGen = 0;
+    const filtered = new WeakMap(); // keyed tile canvas -> { gen, ctx }
     const tileContext = OpenSeadragon.Tile.prototype.getCanvasContext;
     OpenSeadragon.Tile.prototype.getCanvasContext = function () {
       const c = tileContext.call(this);
-      if (c && this.keyAs && !c.canvas.keyed) { c.canvas.keyed = true; keyOut(c, this.keyAs); }
-      return c;
+      if (!c || !this.keyAs) return c;
+      if (!c.canvas.keyed) { c.canvas.keyed = true; keyOut(c, this.keyAs); }
+      if (!tileFilter) return c;
+      let f = filtered.get(c.canvas);
+      if (!f || f.gen !== filterGen) { f = { gen: filterGen, ctx: filterTile(c, this) }; filtered.set(c.canvas, f); }
+      return f.ctx || c;
     };
+    function filterTile(c, tile) {
+      const { width: w, height: h } = c.canvas;
+      if (!w || !h) return null;
+      let img;
+      try { img = c.getImageData(0, 0, w, h); } catch { return null; }
+      // where this tile sits, in full-resolution map pixels (so patterns line up across tiles and zoom levels)
+      const perUnit = w / tile.bounds.width, s = meta.width / perUnit;
+      // (a filter returns false to leave a tile as it is)
+      if (tileFilter(img.data, w, h, { night: tile.keyAs !== KEY.day, x0: tile.bounds.x * perUnit * s, y0: tile.bounds.y * perUnit * s, s }) === false) return null;
+      const out = document.createElement('canvas'); out.width = w; out.height = h;
+      const ctx = out.getContext('2d'); ctx.putImageData(img, 0, 0);
+      return ctx;
+    }
     function keyOut(c, { bg: [R, G, B], soft }) {
       const { width: w, height: h } = c.canvas;
       if (!w || !h) return;
@@ -953,6 +975,8 @@
         g.closePath();
         return true;
       },
+      // recolour the map tiles (fn(pixels, w, h, { night, x0, y0, s }) or null for the original imagery)
+      setTileFilter: (fn) => { tileFilter = fn || null; filterGen++; viewer.forceRedraw(); },
       // add a round button to the right-hand control bar (above the compass divider)
       addControl: (btn) => { const c = $('controls'), hrs = c.querySelectorAll('hr'); c.insertBefore(btn, hrs[hrs.length - 1]); return btn; },
       // map clicks: a handler returning true swallows the click (no building select)
