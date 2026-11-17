@@ -253,7 +253,13 @@ onApp((app) => {
     // cloud shadows: strongest with broken cloud (sun between clouds), faint under full overcast, none at night
     const cover = (w.cloudCover ?? 0) / 100;
     const shadowK = cover < 0.15 ? 0 : (w.kind === 'clear' || w.kind === 'cloudy' ? sstep(0.15, 0.55, cover) * (1 - 0.6 * sstep(0.85, 1, cover)) : 0.25) * (1 - night);
-    if (shadowK > 0.01) drawSheet(clouds, SHADOWS, M, wind, speed, dt, moving, 0.42 * shadowK, Math.round(clouds.length * clamp(cover + 0.15)));
+    // (kept to the campus ground: the empty page around the map is sky now, see atmosphere.js)
+    if (shadowK > 0.01) {
+      ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+      if (app.groundPath?.(ctx, dpr)) ctx.clip();
+      drawSheet(clouds, SHADOWS, M, wind, speed, dt, moving, 0.42 * shadowK, Math.round(clouds.length * clamp(cover + 0.15)));
+      ctx.restore();
+    }
     // fog: an even haze plus thicker banks rolling across campus
     if (w.kind === 'fog') {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
