@@ -250,6 +250,31 @@ export function buildTraffic(scene, meta) {
   crossings.length = 0;
   crossings.push(...merged);
 
+  // pedestrian crossings of the ION: the paths named (or 'way/<id>') in transit.json ion.footCrossings
+  const footSel = new Set(transit.ion?.footCrossings || []);
+  for (const e of raw.elements) {
+    const t = e.tags || {};
+    if (e.type !== 'way' || !e.geometry || !/^(footway|path|cycleway|pedestrian)$/.test(t.highway || '')) continue;
+    if (!footSel.has(t.name) && !footSel.has(`way/${e.id}`)) continue;
+    const g = e.geometry.map((q) => proj(q.lat, q.lon));
+    const hits = [];
+    for (let i = 1; i < g.length; i++) for (const line of trackLines) for (let j = 1; j < line.length; j++) {
+      const x = segX(g[i - 1], g[i], line[j - 1], line[j]);
+      if (x) hits.push({ x, d: [g[i][0] - g[i - 1][0], g[i][1] - g[i - 1][1]] });
+    }
+    if (!hits.length) continue; // other pieces of the same path
+    footSel.delete(t.name); footSel.delete(`way/${e.id}`);
+    const c = [hits.reduce((s, h) => s + h.x[0], 0) / hits.length, hits.reduce((s, h) => s + h.x[1], 0) / hits.length];
+    const L = Math.hypot(...hits[0].d) || 1, rx = hits[0].d[0] / L, ry = hits[0].d[1] / L;
+    const along = hits.map((h) => (h.x[0] - c[0]) * rx + (h.x[1] - c[1]) * ry);
+    crossings.push({
+      x: +c[0].toFixed(2), y: +c[1].toFixed(2), rx: +rx.toFixed(4), ry: +ry.toFixed(4), w: 3.2, oneway: false, foot: true,
+      span: +(Math.max(...along) - Math.min(...along) + 4.5).toFixed(2), s: tracks.map((tr) => +onLine(tr, c).s.toFixed(1)),
+    });
+  }
+
+  for (const k of footSel) console.warn(`footCrossings: no path called ${k} crosses the ION`);
+
   // ---------- areas for people and geese ----------
   const ringOf = (e) => e.geometry.map((g) => proj(g.lat, g.lon));
   const areaOf = (r) => { let a = 0; for (let i = 0; i < r.length; i++) { const q = r[(i + 1) % r.length]; a += r[i][0] * q[1] - q[0] * r[i][1]; } return Math.abs(a / 2); };
@@ -326,7 +351,7 @@ export function buildTraffic(scene, meta) {
     projection, azimuth: meta.azimuth, bounds: B,
     roads: { nodes, edges },
     buses: routes,
-    ion: { ...transit.ion, tracks: tracks.map((pts) => ({ pts, station: platC ? +onLine(pts, platC).s.toFixed(1) : null })) },
+    ion: { ...transit.ion, footCrossings: undefined, tracks: tracks.map((pts) => ({ pts, station: platC ? +onLine(pts, platC).s.toFixed(1) : null })) },
     crossings, fields, geeseAreas, parking,
     liveries: transit.liveries,
   };
@@ -337,5 +362,5 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const meta = JSON.parse(fs.readFileSync(path.join(ROOT, 'out/meta.json'), 'utf8'));
   const t = buildTraffic(scene, meta);
   fs.writeFileSync(path.join(ROOT, 'out/traffic.json'), JSON.stringify(t));
-  console.log(`traffic: ${t.roads.edges.length} road segments, ${t.buses.length} bus routes (${t.buses.map((b) => `${b.id}:${b.paths[0].stops.length} stops/${Math.round(b.paths[0].pts.length)} pts`).join(', ')}), ION ${t.ion.tracks.length} tracks (stations at ${t.ion.tracks.map((k) => k.station).join(' / ')} m), ${t.crossings.length} level crossings, ${t.fields.length} fields, ${t.geeseAreas.length} goose areas, ${t.parking.length} parking lots`);
+  console.log(`traffic: ${t.roads.edges.length} road segments, ${t.buses.length} bus routes (${t.buses.map((b) => `${b.id}:${b.paths[0].stops.length} stops/${Math.round(b.paths[0].pts.length)} pts`).join(', ')}), ION ${t.ion.tracks.length} tracks (stations at ${t.ion.tracks.map((k) => k.station).join(' / ')} m), ${t.crossings.length} level crossings (${t.crossings.filter((c) => c.foot).length} for pedestrians), ${t.fields.length} fields, ${t.geeseAreas.length} goose areas, ${t.parking.length} parking lots`);
 }
