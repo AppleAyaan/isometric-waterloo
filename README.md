@@ -17,6 +17,7 @@ OpenStreetMap ──► scene.json ──► three.js isometric render ──►
 | 3a. Render the whitebox | `npm run export` (`-- --scale 3` for more detail) | `out/render.png`, `out/idmap.png`, `out/meta.json` |
 | 3b. Render real 3D imagery | `npm run export -- --source google` (needs `.google-maps-key`) | `out/photo.png` (+ ID map/meta) |
 | 4. Paint it (free GPU) | open `colab/paint_waterloo.ipynb` in Google Colab | `map.png` → put in `out/` |
+| 4b. Bake the night map | `npm run night` (after `map.png` changes) | `out/night.png`, `out/night.json` |
 | 5. View | `npm run serve` → http://localhost:8080 | |
 | 6. Deploy | `npm run site` (check it with `npm run preview`) → push to `main`, or upload `site/` anywhere static | `site/` |
 
@@ -58,6 +59,14 @@ Google's Map Tiles API terms restrict storing and redistributing its imagery. Ch
 The viewer animates cars, GRT/GO buses, ION trains, students on the fields by CIF and Canada geese, and labels the named parking lots. None of it is live: cars wander the OSM road graph, buses are routed through the real OSM stops whose `route_ref` lists them, the ION shuttles along the line (gates come down at the level crossings) and stops at the UW station. `npm run export` writes `out/traffic.json`; after changing `data/transit.json` (route names, colours, liveries) or the scene, refresh it alone with `npm run traffic`.
 
 Buses and trains are textured with perspective-corrected photos from Wikimedia Commons in `viewer/sprites/` (sources and licences in `viewer/sprites/CREDITS.md`); a vehicle falls back to its painted livery if an image is missing.
+
+### Night on campus
+The moon button (or `N`) cross-fades to `out/night.png`, a pre-lit copy of the painted map baked by `npm run night` (pure Node, ~25 s):
+- the paint is graded to moonlight (darker, cooler, a little desaturated, violet shadows);
+- every camera-facing wall gets a window grid from its OSM height and levels, and a hash per room decides which are lit and how warm. A depth buffer of the extruded buildings keeps windows only where the wall is actually in front. Dana Porter, DC, MC, SLC and the residences stay busier than offices and houses (`BUSY` in `scripts/night.mjs`);
+- sodium-yellow lights along the roads, warm LEDs along paths and in parking lots throw pools that multiply the painted ground, with posts and soft bloom.
+
+The viewer only downloads the night map the first time someone turns it on. Vehicles get headlight beams, tail lights and lit cabins. `?night` in the URL opens straight into night mode. Re-run `npm run night` whenever `map.png`, the scene or heights change.
 
 ### Fixing building heights
 OSM heights and codes are sometimes missing or wrong. Add overrides to `data/overrides.json`, keyed by building code or OSM id, then run `npm run scene && npm run outlines` (no re-render needed unless heights changed):

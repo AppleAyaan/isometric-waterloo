@@ -8,6 +8,7 @@
     "export": "node scripts/export.mjs",
     "outlines": "node scripts/outlines.mjs",
     "traffic": "node scripts/traffic.mjs",
+    "night": "node scripts/night.mjs",
     "serve": "node scripts/serve.mjs",
     "site": "node scripts/build_site.mjs",
     "notebook": "python3 colab/make_notebook.py",

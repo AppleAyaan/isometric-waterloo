@@ -30,7 +30,26 @@
       --shadow: 0 10px 34px rgba(70, 55, 25, .18), 0 1px 3px rgba(70, 55, 25, .12);
       --safe-b: env(safe-area-inset-bottom, 0px); --safe-t: env(safe-area-inset-top, 0px);
     }
+    /* night mode: dark violet glass over the night map */
+    :root[data-night] {
+      --ink: #eeeaf8; --muted: #a9a3c4; --gold-deep: #f4c43a;
+      --glass: rgba(28, 24, 52, .46); --glass-strong: rgba(36, 31, 66, .7); --edge: rgba(190, 175, 255, .2);
+      --shadow: 0 10px 34px rgba(5, 3, 20, .45), 0 1px 3px rgba(5, 3, 20, .35);
+    }
+    :root[data-night] .chip { box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 255, 255, .12); }
+    :root[data-night] .chip.vcard { box-shadow: 0 4px 14px rgba(5, 3, 20, .4), inset 0 1px 0 rgba(255, 255, 255, .12); }
+    :root[data-night] .btn, :root[data-night] #search, :root[data-night] kbd { background: rgba(255, 255, 255, .07); border-color: rgba(255, 255, 255, .13); }
+    :root[data-night] .btn:hover, :root[data-night] #results li:hover, :root[data-night] #results li.active,
+    :root[data-night] #controls button:hover, :root[data-night] #feedback:hover, :root[data-night] #card .x:hover, :root[data-night] #help .x:hover { background: rgba(255, 255, 255, .12); }
+    :root[data-night] .btn.on { background: var(--gold); border-color: var(--gold); color: #1f1c17; }
+    :root[data-night] #search::placeholder { color: #8f89aa; }
+    :root[data-night] #help .chip { background: rgba(30, 26, 54, .94); }
+    :root[data-night] dialog::backdrop { background: rgba(5, 3, 20, .45); }
+    :root[data-night] .brand img { filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .5)); }
+    :root[data-night] #help .stats span { background: rgba(254, 211, 76, .18); }
+    @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { :root[data-night] .chip { background: rgba(32, 28, 58, .95); } }
     * { box-sizing: border-box; }
+    body { transition: background-color .9s; }
     html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font: 14px/1.4 Inter, system-ui, sans-serif; overflow: hidden; -webkit-tap-highlight-color: transparent; }
     button { font: inherit; color: inherit; }
     :focus-visible { outline: 2px solid var(--gold-deep); outline-offset: 2px; }
@@ -222,6 +241,7 @@
     <button id="home" title="Show all of campus (0)" aria-label="Show all of campus"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 21 8v8l-9 5-9-5V8z"/><path d="m3 8 9 5 9-5M12 13v8"/></svg></button>
     <hr>
     <button id="life" title="Pause / play traffic and people (L)" aria-label="Pause traffic and people" aria-pressed="true" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="9" width="16" height="7" rx="2"/><path d="M6 9l2-4h8l2 4"/><circle cx="8" cy="17.5" r="1.6" fill="currentColor"/><circle cx="16" cy="17.5" r="1.6" fill="currentColor"/></svg></button>
+    <button id="night" title="Night on campus (N)" aria-label="Night on campus" aria-pressed="false" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/><path d="M17 3.5v3M15.5 5h3" stroke-width="1.8"/></svg></button>
     <button id="fs" title="Full screen (F)" aria-label="Full screen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
     <button id="helpbtn" title="About and shortcuts (?)" aria-label="About this map"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.1-2.4 3.6"/><circle cx="12" cy="17" r=".9" fill="currentColor"/></svg></button>
     <hr>
@@ -249,10 +269,13 @@
         <tr><td><kbd>←</kbd> <kbd>↑</kbd> <kbd>→</kbd> <kbd>↓</kbd></td><td>Pan</td></tr>
         <tr><td><kbd>R</kbd> <kbd>T</kbd></td><td>Random building, campus tour</td></tr>
         <tr><td><kbd>L</kbd> <kbd>F</kbd></td><td>Pause traffic, full screen</td></tr>
+        <tr><td><kbd>N</kbd></td><td>Night on campus</td></tr>
         <tr><td><kbd>Esc</kbd></td><td>Close</td></tr>
       </table>
       <h3>What's moving?</h3>
       <p>Cars, GRT and GO buses, the ION, students on the fields and the geese are a simulation, not live data. Buses follow their real routes and stop at real stops; the ION drops the crossing gates as it passes.</p>
+      <h3>Night on campus</h3>
+      <p>The moon button turns the lights on: street lamps along the roads, paths and lots, and windows lit floor by floor from each building's real height and levels. Dana Porter and DC stay busy late; the residences are home time.</p>
       <h3>Credits</h3>
       <p>Map data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a> (ODbL). <span id="paintcredit"></span>Vehicle photos from Wikimedia Commons (<a href="sprites/CREDITS.md" target="_blank" rel="noopener">licences</a>). Inspired by Andy Coenen's <a href="https://cannoneyed.com/projects/isometric-nyc" target="_blank" rel="noopener">isometric.nyc</a>. Not affiliated with the University of Waterloo.</p>
     </div>
@@ -272,10 +295,10 @@
 
     if (!window.OpenSeadragon) return fail("Couldn't load the map viewer. Check your connection and try again.");
     const getJSON = (u) => fetch(u).then((r) => (r.ok ? r.json() : Promise.reject(new Error(r.status + ' ' + u))));
-    let meta, life;
+    let meta, life, nightInfo;
     try {
       progress(15, 'Loading buildings…');
-      [meta, life] = await Promise.all([getJSON(OUT + 'meta.json'), getJSON(OUT + 'traffic.json').catch(() => null)]);
+      [meta, life, nightInfo] = await Promise.all([getJSON(OUT + 'meta.json'), getJSON(OUT + 'traffic.json').catch(() => null), getJSON(OUT + 'night.json').catch(() => null)]);
     } catch (e) { console.error(e); return fail("Couldn't load the map data. Check your connection and try again."); }
 
     // The deployed site streams a Deep Zoom pyramid (npm run site flips TILED); locally we show the PNG
@@ -377,6 +400,53 @@
     if (window.mapLife) setLife(store.get('life') ? store.get('life') === '1' : !reduceMotion);
     else lifeBtn.hidden = true;
     lifeBtn.onclick = () => { if (window.mapLife) { const on = !mapLife.isEnabled(); setLife(on, true); toast(on ? 'Traffic on' : 'Traffic paused'); } };
+
+    // ---- night on campus: a second, pre-lit copy of the map (npm run night) cross-fades over the day map ----
+    const nightBtn = $('night'), themeColor = document.querySelector('meta[name=theme-color]');
+    let nightOn = false, nightLayer = null, nightFade = 0;
+    function fadeNight(to) {
+      cancelAnimationFrame(nightFade);
+      const from = nightLayer.getOpacity(), t0 = performance.now(), dur = reduceMotion ? 1 : 900;
+      const tick = (now) => {
+        const u = Math.min(1, (now - t0) / dur), e = u * u * (3 - 2 * u);
+        nightLayer.setOpacity(from + (to - from) * e);
+        // with the night map fully over it, hide the day map so no sliver of it shows at the edges
+        viewer.world.getItemAt(0).setOpacity(nightLayer.getOpacity() > 0.999 ? 0 : 1);
+        if (u < 1) nightFade = requestAnimationFrame(tick);
+      };
+      nightFade = requestAnimationFrame(tick);
+    }
+    function setNight(on, save) {
+      if (!nightInfo) return;
+      nightOn = on;
+      document.documentElement.toggleAttribute('data-night', on);
+      document.body.style.backgroundColor = on ? nightInfo.background : meta.background;
+      themeColor.content = on ? nightInfo.background : meta.background;
+      nightBtn.classList.toggle('on', on);
+      nightBtn.setAttribute('aria-pressed', String(on));
+      window.mapLife?.setNight(on);
+      if (save) store.set('night', on ? '1' : '0');
+      if (nightLayer && nightLayer !== 'loading') return fadeNight(on ? 1 : 0);
+      if (!on || nightLayer) return;
+      // fetched on first use only, so daytime visitors never download it
+      nightLayer = 'loading';
+      const slow = setTimeout(() => toast('Turning the lights on…'), 400);
+      viewer.addTiledImage({
+        tileSource: TILED ? OUT + 'night.dzi' : { type: 'image', url: OUT + 'night.png' },
+        x: 0, y: 0, width: 1, opacity: 0,
+        success: (e) => {
+          nightLayer = e.item; clearTimeout(slow);
+          const go = () => fadeNight(nightOn ? 1 : 0);
+          if (e.item.getFullyLoaded?.()) go(); else { e.item.addOnceHandler('fully-loaded-change', go); setTimeout(go, 2500); }
+        },
+        error: () => { clearTimeout(slow); nightLayer = null; toast("Couldn't load the night map"); setNight(false); },
+      });
+    }
+    if (nightInfo) {
+      nightBtn.hidden = false;
+      nightBtn.onclick = () => { if (nightLayer === 'loading') return; setNight(!nightOn, true); toast(nightOn ? 'Night on campus' : 'Back to daytime'); };
+      if (store.get('night') === '1' || new URLSearchParams(location.search).has('night')) setNight(true);
+    }
 
     // compass: which way north points on screen (from the map's own projection)
     if (life?.projection) {
@@ -630,7 +700,7 @@
         '/': () => search.focus(), '?': openHelp,
         '+': () => zoomBy(1.6), '=': () => zoomBy(1.6), '-': () => zoomBy(1 / 1.6), '_': () => zoomBy(1 / 1.6), '0': () => $('home').click(),
         r: randomBuilding, R: randomBuilding, t: () => tourBtn.click(), T: () => tourBtn.click(),
-        l: () => lifeBtn.click(), L: () => lifeBtn.click(), f: toggleFS, F: toggleFS,
+        l: () => lifeBtn.click(), L: () => lifeBtn.click(), f: toggleFS, F: toggleFS, n: () => nightBtn.click(), N: () => nightBtn.click(),
         Escape: () => { stopTour(); select(null); },
         ArrowLeft: () => viewer.viewport.panBy(new OpenSeadragon.Point(-pan, 0)), ArrowRight: () => viewer.viewport.panBy(new OpenSeadragon.Point(pan, 0)),
         ArrowUp: () => viewer.viewport.panBy(new OpenSeadragon.Point(0, -pan)), ArrowDown: () => viewer.viewport.panBy(new OpenSeadragon.Point(0, pan)),
