@@ -3,3 +3,5 @@ node_modules/
 site/
 .google-maps-key
 .cesium-ion-token
+# raw Google imagery: never commit (Map Tiles terms)
+out/photo.png
