@@ -90,3 +90,10 @@ The notebook is generated from `colab/make_notebook.py`. Edit that file, then ru
 
 ## Credits
 Map data © OpenStreetMap contributors (ODbL). Approach inspired by Andy Coenen's isometric.nyc write-up.
+
+## License
+The code is MIT-licensed (see `LICENSE`). Other parts carry their own terms:
+- **Map data** (`data/`, `out/meta.json`, `out/traffic.json`, `out/walk.json`, `viewer/water.json`) is derived from OpenStreetMap, © OpenStreetMap contributors, under the [ODbL](https://opendatacommons.org/licenses/odbl/).
+- **Vehicle sprites** in `viewer/sprites/` keep the licences of their Wikimedia Commons sources (CC0 / CC BY-SA, see `viewer/sprites/CREDITS.md`).
+- **The painted map** (`out/map.png`, `out/night*.png`) was painted from imagery © Google and is not covered by the MIT licence.
+- University of Waterloo, GRT, ION and GO names and logos belong to their owners. This project is not affiliated with the University of Waterloo.
