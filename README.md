@@ -3,6 +3,10 @@
 A giant isometric map of the University of Waterloo campus. Every building is real: point at one to see what it is.
 It follows the isometric.nyc approach, using only free and open tools.
 
+**Live map: https://appleayaan.github.io/isometric-waterloo/**
+
+[![Isometric Waterloo: the painted campus map with live buses and the ION](docs/screenshot.jpg)](https://appleayaan.github.io/isometric-waterloo/)
+
 ```
 OpenStreetMap ──► scene.json ──► three.js isometric render ──► Colab (SDXL + ControlNet + pixel-art LoRA, infill) ──► map.png ──► viewer
                                      └─► idmap.png + meta.json (hover / search) ───────────────────────────────────────────────┘
